@@ -40,7 +40,6 @@ jobs:
         run: dotnet build -c Release
 
       - name: 'Upload Artifact'
-        if: github.ref == 'refs/heads/feature/reusable-workflow'
         uses: actions/upload-artifact@v3
         with:
           name: all-package
