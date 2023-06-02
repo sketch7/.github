@@ -72,5 +72,8 @@ jobs:
         with:
           name: all-package # optional else it will download all artifacts.
 
+      - name: echo
+        run: ls -a
+
       - name: Test
         run: npm test
