@@ -70,7 +70,7 @@ jobs:
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v3
         with:
-          name: all-package # optional else it will download all artifacts
+          name: all-package # optional else it will download all artifacts.
 
       - name: Test
         run: npm test
