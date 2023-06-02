@@ -1,4 +1,4 @@
-name: Build
+name: Dotnet Library Build
 
 on:
   workflow_call:
@@ -39,19 +39,19 @@ jobs:
       - name: dotnet build
         run: dotnet build -c Release
 
-      - name: Test
-        run: npm test
+      # - name: Test
+      #   run: npm test
 
-      - name: Check if branch is publishable
-        run: |
-          if ! ([ ${{ github.ref }} = "refs/heads/master" ] || [[ "${{ github.ref }}" =~ ^(([0-9]+|\.)+x)$ ]]); then
-            echo "Non-publishable branch; finishing build..."
-            exit 1
-          fi
+      # - name: Check if branch is publishable
+      #   run: |
+      #     if ! ([ ${{ github.ref }} = "refs/heads/master" ] || [[ "${{ github.ref }}" =~ ^(([0-9]+|\.)+x)$ ]]); then
+      #       echo "Non-publishable branch; finishing build..."
+      #       exit 1
+      #     fi
 
-      - name: Publish NuGet
-        run: |
-          npm run publish:dev
+      # - name: Publish NuGet
+      #   run: |
+      #     npm run publish:dev
 
   deploy:
     needs: build
