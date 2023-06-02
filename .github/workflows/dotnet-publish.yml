@@ -24,7 +24,7 @@ jobs:
           DOTNET_CLI_V=$(dotnet --version)
           echo dotnet cli version':' $DOTNET_CLI_V
           echo dotnet requested version':' ${{ inputs.dotnet-version }}
-
+          ::notice dotnet cli version 2 $DOTNET_CLI_V
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v3
         with:
@@ -75,7 +75,7 @@ jobs:
           name: all-package # optional else it will download all artifacts.
 
       - name: echo
-        run: ls -a
+        run: ::notice version test $VERSION
 
       - name: Test
         run: npm test
