@@ -45,7 +45,7 @@ jobs:
           name: all-package
           retention-days: 1
           path: 
-            /**/bin/release/*
+            /home/runner/work/**/bin/release/**/*
 
       # - name: Test
       #   run: npm test
