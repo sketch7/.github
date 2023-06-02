@@ -45,7 +45,7 @@ jobs:
           name: all-package
           retention-days: 1
           path: 
-            /home/runner/work/**/*
+            /**/bin/release/*
 
       # - name: Test
       #   run: npm test
@@ -67,6 +67,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v3
         with:
