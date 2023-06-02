@@ -55,7 +55,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/feature/reusable-workflow'
     runs-on: ubuntu-latest
 
     steps:
