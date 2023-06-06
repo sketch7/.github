@@ -25,7 +25,6 @@ jobs:
           echo dotnet cli version':' $DOTNET_CLI_V
           echo dotnet input version':' ${{ inputs.dotnet-version }}
           echo "::notice::dotnet cli version 2 $DOTNET_CLI_V"
-          echo "PUBLISH: $PUBLISH" # todo remove
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v3
         with:
@@ -39,12 +38,14 @@ jobs:
           if ! ([ ${{ github.ref }} = "refs/heads/master" ] || [[ "${{ github.ref }}" =~ ^(([0-9]+|\.)+x)$ ]]); then
           echo "Non-publishable branch; finishing build..."
           # exit 1
-          echo "PUBLISH=true" >> $GITHUB_ENV
+          PUBLISH=true
+          echo "PUBLISH x1: $PUBLISH"
+          echo "PUBLISH=$PUBLISH" >> $GITHUB_ENV
           fi
-          echo "PUBLISH: $PUBLISH"
+          echo "PUBLISH x2: $PUBLISH"
 
       - name: Print PUBLISH
-        run: echo "PUBLISH- ${{ github.env.PUBLISH }}"
+        run: echo "PUBLISH ${{ github.env.PUBLISH }} END"
 
       # - name: dotnet restore
       #   run: dotnet restore
