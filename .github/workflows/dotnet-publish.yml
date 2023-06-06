@@ -25,7 +25,7 @@ jobs:
           echo dotnet cli version':' $DOTNET_CLI_V
           echo dotnet input version':' ${{ inputs.dotnet-version }}
           echo "::notice::dotnet cli version 2 $DOTNET_CLI_V"
-
+          echo "PUBLISH: $PUBLISH" # todo remove
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v3
         with:
@@ -66,10 +66,10 @@ jobs:
 
   deploy:
     needs: build
+    if: github.env.PUBLISH
     # if: github.ref == 'refs/heads/feature/reusable-workflow'
-    if: github.env.PUBLISH == 'true'
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v3
