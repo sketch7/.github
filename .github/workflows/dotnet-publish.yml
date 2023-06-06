@@ -95,7 +95,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.steps.check-branch.outputs.publishable == 'true' }}
+    if: inputs.publishable
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -105,8 +105,7 @@ jobs:
           name: all-package # optional else it will download all artifacts.
 
       - name: Print version
-        run: echo "::notice::Package version ${{ github.env.VERSION }}"
-
+        run: echo "::notice::Package version ${{ github.env.VERSION }} - ${{ inputs.publishable }}"
         # todo: remove test and publish instead
       - name: Test
         run: npm test
