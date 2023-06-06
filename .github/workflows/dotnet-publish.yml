@@ -46,10 +46,11 @@ jobs:
 
       - name: Check if branch is publishable
         id: check-branch
-        # env:
-        #   BRANCH_NAME: ${{ steps.git.outputs.branch-name}}
+        env:
+          # BRANCH_NAME: ${{ steps.git.outputs.branch-name}}
+          BRANCH_NAME: ${{ github.head_ref}}
         run: |
-          BRANCH_NAME=${{github.head_ref}}
+          # BRANCH_NAME=${{github.head_ref}}
           echo "::notice ::Branch name: $BRANCH_NAME"
 
           if ! ([ $BRANCH_NAME = "master" ] || [ $BRANCH_NAME = "vnext" ] || [[ "$BRANCH_NAME" =~ ^([0-9].*)\.x$ ]]); then
