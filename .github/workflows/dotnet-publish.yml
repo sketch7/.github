@@ -52,10 +52,11 @@ jobs:
           echo "::notice ::Branch name: $BRANCH_NAME"
 
           if ! ([ $BRANCH_NAME = "master" ] || [ $BRANCH_NAME = "vnext" ] || [[ "$BRANCH_NAME" =~ ^([0-9].*)\.x$ ]]); then
-            echo "::set-output name=publishable::false"
+            echo "publishable=true" >> $GITHUB_OUTPUT
+            # echo "publishable=false" >> $GITHUB_OUTPUT
             echo "::notice ::Non-publishable branch."
           else 
-            echo "::set-output name=publishable::true"
+          echo "publishable=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Print PUBLISH
@@ -86,7 +87,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.steps.commit.outputs.publishable == 'true' }}
+    if: ${{ github.outputs.publishable == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
