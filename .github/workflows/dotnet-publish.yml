@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: '6.0.x'
+      publishable:
+        description: Whether packages should be deployed to Nuget server
+        type: boolean
+        default: false
+        required: false
 
 jobs:
   build:
