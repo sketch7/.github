@@ -38,60 +38,25 @@ jobs:
           DOTNET_CLI_TELEMETRY_OPTOUT: true
           SKETCH7_NUGET_API_KEY: ${{secrets.NUGET_KEY}}
 
-      # - name: Check if branch is publishable
-      #   run: |
-      #     if ! ([ ${{ github.ref }} = "refs/heads/master" ] || [[ "${{ github.ref }}" =~ ^(([0-9]+|\.)+x)$ ]]); then
-      #     echo "Non-publishable branch; finishing build..."
-      #     # exit 1
-      #     PUBLISH=true
-      #     echo "PUBLISH x1: $PUBLISH"
-      #     echo "PUBLISH=$PUBLISH" >> $GITHUB_ENV
-      #     fi
-      #     echo "PUBLISH x2: $PUBLISH"
+      - name: dotnet restore
+        run: dotnet restore
 
-      # - name: Check if branch is publishable
-      #   id: check-branch
-      #   env:
-      #     # BRANCH_NAME: ${{ steps.git.outputs.branch-name}}
-      #     BRANCH_NAME: ${{ github.ref}}
-      #   run: |
-      #     echo "::notice ::Branch name: $BRANCH_NAME"
+      - name: dotnet build
+        run: dotnet build -c Release --no-restore
 
-      #     if ! ([ $BRANCH_NAME = "refs/heads/master" ] || [ $BRANCH_NAME = "refs/heads/vnext" ] || [[ "$BRANCH_NAME" =~ refs/heads/([0-9].*)\.x$ ]]); then
-      #       echo "inputs.publishable=false" >> $GITHUB_OUTPUT
-      #       # echo "publishable=false" >> $GITHUB_OUTPUT
-      #       echo "::notice ::Non-publishable branch."
-      #     else 
-      #     echo "inputs.publishable=false" >> $GITHUB_OUTPUT
-      #     fi
+      - name: Test
+        run: npm test
+
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: all-package
+          retention-days: 1
+          path: 
+            /home/runner/work/**/bin/**/*
 
       - name: Print PUBLISH
-        # run: echo "PUBLISH ${{ env.PUBLISH }} END"
-        # run: echo "PUBLISH ${{ steps.commit.outputs.publishable }} END"
-        # run: echo "PUBLISH ${{ github.outputs.publishable }} END"
-        # run: echo "PUBLISH ${{ steps.check-branch.outputs.publishable }} END"
-        run: echo "PUBLISH ${{ inputs.publishable }} END"
-
-      # - name: dotnet restore
-      #   run: dotnet restore
-
-      # - name: dotnet build
-      #   run: dotnet build -c Release --no-restore
-
-      # - name: 'Upload Artifact'
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: all-package
-      #     retention-days: 1
-      #     path: 
-      #       /home/runner/work/**/bin/**/*
-
-      # - name: Test
-      #   run: npm test
-
-      # - name: Publish NuGet
-      #   run: |
-      #     npm run publish:dev
+        run: echo "Is publishable ${{ inputs.publishable }}"
 
   deploy:
     needs: build
@@ -106,10 +71,10 @@ jobs:
           name: all-package # optional else it will download all artifacts.
 
       - name: Print version
-        run: echo "::notice::Package version ${{ github.env.VERSION }} - ${{ inputs.publishable }}"
-        # todo: remove test and publish instead
-      - name: Test
-        run: npm test
+        run: echo "::notice::Package version ${{ github.env.VERSION }}"
+        
+        # todo: publish instead
+        
       # - name: Publish NuGet
       #   run: |
       #     npm run publish:dev
