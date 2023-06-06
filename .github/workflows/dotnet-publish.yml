@@ -9,6 +9,9 @@ on:
         type: string
         default: '6.0.x'
 
+env: 
+  PUBLISH: ${{ github.ref }} == "refs/heads/master" || ${{ github.ref }} =~ ^(([0-9]+|\.)+x)$ || ${{ github.ref }} == 'refs/heads/feature/reusable-workflow'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -50,12 +53,15 @@ jobs:
       # - name: Test
       #   run: npm test
 
-      # - name: Check if branch is publishable
-      #   run: |
-      #     if ! ([ ${{ github.ref }} = "refs/heads/master" ] || [[ "${{ github.ref }}" =~ ^(([0-9]+|\.)+x)$ ]]); then
-      #       echo "Non-publishable branch; finishing build..."
-      #       exit 1
-      #     fi
+      - name: Check if branch is publishable
+        run: |
+          if ! ([ ${{ github.ref }} = "refs/heads/master" ] || [[ "${{ github.ref }}" =~ ^(([0-9]+|\.)+x)$ ]]); then
+          echo "Non-publishable branch; finishing build..."
+          # exit 1
+          export PUBLISH2=true
+          fi
+          echo "PUBLISH: $PUBLISH"
+          echo "PUBLISH2: $PUBLISH2"
 
       # - name: Publish NuGet
       #   run: |
@@ -63,7 +69,8 @@ jobs:
 
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/feature/reusable-workflow'
+    # if: github.ref == 'refs/heads/feature/reusable-workflow'
+    if: github.env.PUBLISH == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -77,5 +84,9 @@ jobs:
       - name: Print version
         run: echo "::notice::Package version ${{ github.env.VERSION }}"
 
+        # todo: remove test and publish instead
       - name: Test
         run: npm test
+      # - name: Publish NuGet
+      #   run: |
+      #     npm run publish:dev
