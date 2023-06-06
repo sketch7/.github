@@ -48,12 +48,11 @@ jobs:
         id: check-branch
         env:
           # BRANCH_NAME: ${{ steps.git.outputs.branch-name}}
-          BRANCH_NAME: ${{ github.head_ref}}
+          BRANCH_NAME: ${{ github.ref}}
         run: |
-          # BRANCH_NAME=${{github.head_ref}}
           echo "::notice ::Branch name: $BRANCH_NAME"
 
-          if ! ([ $BRANCH_NAME = "master" ] || [ $BRANCH_NAME = "vnext" ] || [[ "$BRANCH_NAME" =~ ^([0-9].*)\.x$ ]]); then
+          if ! ([ $BRANCH_NAME = "refs/heads/master" ] || [ $BRANCH_NAME = "refs/heads/vnext" ] || [[ "$BRANCH_NAME" =~ refs/heads/([0-9].*)\.x$ ]]); then
             echo "publishable=true" >> $GITHUB_OUTPUT
             # echo "publishable=false" >> $GITHUB_OUTPUT
             echo "::notice ::Non-publishable branch."
