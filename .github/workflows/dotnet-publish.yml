@@ -62,7 +62,8 @@ jobs:
 
       - name: Print PUBLISH
         # run: echo "PUBLISH ${{ env.PUBLISH }} END"
-        run: echo "PUBLISH ${{ steps.commit.outputs.publishable }} END"
+        # run: echo "PUBLISH ${{ steps.commit.outputs.publishable }} END"
+        run: echo "PUBLISH ${{ github.outputs.publishable }} END"
 
       # - name: dotnet restore
       #   run: dotnet restore
