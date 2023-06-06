@@ -70,8 +70,7 @@ jobs:
 
   deploy:
     needs: build
-    if: env.PUBLISH
-    # if: github.ref == 'refs/heads/feature/reusable-workflow'
+    if: github.env.PUBLISH
     runs-on: ubuntu-latest
     
     steps:
