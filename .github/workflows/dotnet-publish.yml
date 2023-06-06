@@ -63,7 +63,8 @@ jobs:
       - name: Print PUBLISH
         # run: echo "PUBLISH ${{ env.PUBLISH }} END"
         # run: echo "PUBLISH ${{ steps.commit.outputs.publishable }} END"
-        run: echo "PUBLISH ${{ github.outputs.publishable }} END"
+        # run: echo "PUBLISH ${{ github.outputs.publishable }} END"
+        run: echo "PUBLISH ${{ steps.check-branch.outputs.publishable }} END"
 
       # - name: dotnet restore
       #   run: dotnet restore
@@ -89,7 +90,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.outputs.publishable == 'true' }}
+    if: ${{ github.steps.check-branch.outputs.publishable == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
