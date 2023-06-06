@@ -44,7 +44,7 @@ jobs:
           echo "PUBLISH: $PUBLISH"
 
       - name: Print PUBLISH
-        run: echo "PUBLISH- ${{ github.env.VERSION }}"
+        run: echo "PUBLISH- ${{ github.env.PUBLISH }}"
 
       # - name: dotnet restore
       #   run: dotnet restore
