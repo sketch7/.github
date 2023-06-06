@@ -44,6 +44,20 @@ jobs:
           fi
           echo "PUBLISH x2: $PUBLISH"
 
+      # - name: Check if branch is publishable
+      #   id: check-branch
+      #   env:
+      #     BRANCH_NAME: ${{ steps.git.outputs.branch-name}}
+      #   run: |
+      #     echo "::notice ::Branch name: $BRANCH_NAME"
+
+      #     if ! ([ $BRANCH_NAME = "master" ] || [ $BRANCH_NAME = "vnext" ] || [[ "$BRANCH_NAME" =~ ^([0-9].*)\.x$ ]]); then
+      #       echo "::set-output name=publishable::false"
+      #       echo "::notice ::Non-publishable branch."
+      #     else 
+      #       echo "::set-output name=publishable::true"
+      #     fi
+
       - name: Print PUBLISH
         run: echo "PUBLISH ${{ env.PUBLISH }} END"
 
@@ -70,7 +84,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.env.PUBLISH
+    if: ${{ github.env.PUBLISH == 'true' }}
     runs-on: ubuntu-latest
     
     steps:
