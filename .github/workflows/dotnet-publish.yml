@@ -9,9 +9,6 @@ on:
         type: string
         default: '6.0.x'
 
-env: 
-  PUBLISH: ${{ github.ref }} == "refs/heads/master" || ${{ github.ref }} =~ ^(([0-9]+|\.)+x)$ || ${{ github.ref }} == 'refs/heads/feature/reusable-workflow'
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,8 +23,9 @@ jobs:
           echo npm version':' $NPM_V
           DOTNET_CLI_V=$(dotnet --version)
           echo dotnet cli version':' $DOTNET_CLI_V
-          echo dotnet requested version':' ${{ inputs.dotnet-version }}
+          echo dotnet input version':' ${{ inputs.dotnet-version }}
           echo "::notice::dotnet cli version 2 $DOTNET_CLI_V"
+
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v3
         with:
@@ -36,32 +34,31 @@ jobs:
           DOTNET_CLI_TELEMETRY_OPTOUT: true
           SKETCH7_NUGET_API_KEY: ${{secrets.NUGET_KEY}}
 
-      - name: dotnet restore
-        run: dotnet restore
-
-      - name: dotnet build
-        run: dotnet build -c Release --no-restore
-
-      - name: 'Upload Artifact'
-        uses: actions/upload-artifact@v3
-        with:
-          name: all-package
-          retention-days: 1
-          path: 
-            /home/runner/work/**/bin/**/*
-
-      # - name: Test
-      #   run: npm test
-
       - name: Check if branch is publishable
         run: |
           if ! ([ ${{ github.ref }} = "refs/heads/master" ] || [[ "${{ github.ref }}" =~ ^(([0-9]+|\.)+x)$ ]]); then
           echo "Non-publishable branch; finishing build..."
           # exit 1
-          export PUBLISH2=true
+          export PUBLISH=true
           fi
           echo "PUBLISH: $PUBLISH"
-          echo "PUBLISH2: $PUBLISH2"
+
+      # - name: dotnet restore
+      #   run: dotnet restore
+
+      # - name: dotnet build
+      #   run: dotnet build -c Release --no-restore
+
+      # - name: 'Upload Artifact'
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: all-package
+      #     retention-days: 1
+      #     path: 
+      #       /home/runner/work/**/bin/**/*
+
+      # - name: Test
+      #   run: npm test
 
       # - name: Publish NuGet
       #   run: |
