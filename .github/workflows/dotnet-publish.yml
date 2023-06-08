@@ -102,6 +102,6 @@ jobs:
         run: echo "::notice::Package version x3 ${{ vars.VERSION }}"
 
       - name: Publish
-        run: dotnet nuget push "*.nupkg" -s https://api.nuget.org/v3/index.json
+        run: dotnet nuget push "*.nupkg" -s https://api.nuget.org/v3/index.json -k $NUGET_AUTH_TOKEN
 # git tag $VERSION
 # git push --tags
