@@ -39,20 +39,6 @@ jobs:
           DOTNET_CLI_TELEMETRY_OPTOUT: true
           SKETCH7_NUGET_API_KEY: ${{secrets.NUGET_KEY}}
 
-      - name: Build version
-        id: version-builder
-        if: inputs.publishable
-        uses: sketch7/version-builder-action@main
-        with:
-          versionSuffix: "devx"
-
-          # only for testing version
-      # - name: Publish NuGet
-      #   run: |
-      #     npm run publish:dev
-      - name: Print version
-        run: echo "::notice::Package version ${{ steps.version-builder.outputs.version }}"
-
       - uses: actions/cache@v3
         with:
           path: ~/.nuget/packages
@@ -78,9 +64,6 @@ jobs:
           path: 
             /home/runner/work/**/bin/**/*
 
-      - name: Print PUBLISH
-        run: echo "Is publishable ${{ inputs.publishable }}"
-
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -93,10 +76,29 @@ jobs:
         with:
           name: all-package # optional else it will download all artifacts.
 
-      - name: Print version
-        run: echo "::notice::Package version ${{ github.env.VERSION }}"
-        
-        # todo: publish instead
+      - name: Build version
+        id: version-builder
+        if: inputs.publishable
+        uses: sketch7/version-builder-action@main
+        # with:
+        #   versionSuffix: "rc"
+
+      # - name: Print version
+      #   run: echo "::notice::Package version ${{ steps.version-builder.outputs.version }}"
+
+      - name: Pack
+        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
+        env:
+          VERSION: ${{ steps.version-builder.outputs.version }}
+          PACKAGE_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
+
+
+      - name: Print version x2
+        run: echo "::notice::Package version x2 $VERSION"
+
+
+      - name: Print version x3
+        run: echo "::notice::Package version x3 ${{ github.env.VERSION }}"
         
       # - name: Publish NuGet
       #   run: |
