@@ -39,6 +39,14 @@ jobs:
           DOTNET_CLI_TELEMETRY_OPTOUT: true
           SKETCH7_NUGET_API_KEY: ${{secrets.NUGET_KEY}}
 
+      - uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget
+
       - name: Restore dependencies
         run: dotnet restore
 
