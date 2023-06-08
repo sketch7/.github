@@ -83,14 +83,14 @@ jobs:
         if: inputs.publishable
         uses: sketch7/version-builder-action@main
         with:
-          preidBranches: "master,feature/reusable-workflow" # todo: remove and use default
+          preidBranches: "master,refs/heads/feature/reusable-workflow" # todo: remove and use default
           # preid: "rc"
 
       # - name: Print version
       #   run: echo "::notice::Package version ${{ steps.version-builder.outputs.version }}"
 
       - name: Pack
-        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
+        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build
         env:
           VERSION: ${{ steps.version-builder.outputs.version }}
           PACKAGE_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
