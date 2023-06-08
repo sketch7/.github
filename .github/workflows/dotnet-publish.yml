@@ -18,7 +18,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   # NUGET_AUTH_TOKEN: ${{ secrets.NUGET_KEY }}
-  NUGET_AUTH_TOKEN: "xxx"
+  NUGET_AUTH_TOKEN: ""
 
 jobs:
   build:
@@ -39,6 +39,7 @@ jobs:
           echo github ref_name: ${{ github.ref_name }}
           echo S TEST: ${{ secrets.TEST }}
           echo S TEST_YO: ${{ secrets.TEST_YO }}
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
