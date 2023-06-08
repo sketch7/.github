@@ -13,12 +13,16 @@ on:
         type: boolean
         default: ${{ contains(fromJSON('["develop", "master", "workflow"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
+      source-url:
+        description: Default nuget source url
+        type: string
+        default: 'https://api.nuget.org/v3/index.json'
+        required: false
+
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  # NUGET_AUTH_TOKEN: ${{ secrets.NUGET_KEY }}
-  NUGET_AUTH_TOKEN: ${{ secrets.chiko}}
 
 jobs:
   build:
@@ -37,14 +41,12 @@ jobs:
           echo dotnet input version':' ${{ inputs.dotnet-version }}
           echo "::notice::dotnet cli version 2 $DOTNET_CLI_V"
           echo github ref_name: ${{ github.ref_name }}
-          echo S TEST: ${{ secrets.TEST }}
-          echo S TEST_YO: ${{ secrets.TEST_YO }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: ${{ inputs.dotnet-version }}
-          source-url: https://api.nuget.org/v3/index.json
+          source-url: ${{ inputs.source-url }}
 
       - uses: actions/cache@v3
         with:
@@ -75,8 +77,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    # env:
-      # NUGET_AUTH_TOKEN: ${{secrets.NUGET_KEY}}
     if: inputs.publishable
     steps:
       - name: Checkout
@@ -86,8 +86,6 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: ${{ inputs.dotnet-version }}
-        env:
-          NUGET_AUTH_TOKEN: ${{ secrets.NUGET_KEY }}
 
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v3
