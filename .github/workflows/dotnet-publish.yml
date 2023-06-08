@@ -67,8 +67,8 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    env:
-      NUGET_AUTH_TOKEN: ${{secrets.NUGET_KEY}}
+    # env:
+      # NUGET_AUTH_TOKEN: ${{secrets.NUGET_KEY}}
     if: inputs.publishable
     steps:
       - name: Checkout
@@ -77,6 +77,14 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: all-package # optional else it will download all artifacts.
+
+      - uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget
 
       - name: Build version
         id: version-builder
@@ -102,6 +110,6 @@ jobs:
         run: echo "::notice::Package version x3 ${{ vars.VERSION }}"
 
       - name: Publish
-        run: dotnet nuget push "*.nupkg" -s https://api.nuget.org/v3/index.json -k $NUGET_AUTH_TOKEN
+        run: dotnet nuget push "*.nupkg" -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_KEY}}
 # git tag $VERSION
 # git push --tags
