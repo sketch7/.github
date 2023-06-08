@@ -17,6 +17,7 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_AUTH_TOKEN: ${{ secrets.NUGET_KEY }}
 
 jobs:
   build:
@@ -42,9 +43,6 @@ jobs:
         with:
           dotnet-version: ${{ inputs.dotnet-version }}
           source-url: https://api.nuget.org/v3/index.json
-        env:
-          NUGET_AUTH_TOKEN: "${{ secrets.NUGET_KEY }}"
-          # NUGET_AUTH_TOKEN: ${{ secrets.NUGET_KEY }}
 
       - uses: actions/cache@v3
         with:
