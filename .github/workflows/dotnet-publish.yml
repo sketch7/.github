@@ -67,6 +67,8 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      NUGET_AUTH_TOKEN: ${{secrets.NUGET_KEY}}
     if: inputs.publishable
     steps:
       - name: Checkout
@@ -80,26 +82,24 @@ jobs:
         id: version-builder
         if: inputs.publishable
         uses: sketch7/version-builder-action@main
-        # with:
-        #   versionSuffix: "rc"
+        with:
+          preidBranches: "master,feature/reusable-workflow" # todo: remove and use default
+          # preid: "rc"
 
       # - name: Print version
       #   run: echo "::notice::Package version ${{ steps.version-builder.outputs.version }}"
 
       - name: Pack
-        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
+        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
         env:
           VERSION: ${{ steps.version-builder.outputs.version }}
           PACKAGE_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
 
-
       - name: Print version x2
-        run: echo "::notice::Package version x2 $VERSION"
-
+        run: echo "::notice::Package version x2 ${{ env.VERSION }}}}"
 
       - name: Print version x3
-        run: echo "::notice::Package version x3 ${{ github.env.VERSION }}"
-        
-      # - name: Publish NuGet
-      #   run: |
-      #     npm run publish:dev
+        run: echo "::notice::Package version x3 ${{ vars.VERSION }}"
+
+      - name: Publish
+        run: dotnet nuget push "*.nupkg"
