@@ -39,12 +39,19 @@ jobs:
           DOTNET_CLI_TELEMETRY_OPTOUT: true
           SKETCH7_NUGET_API_KEY: ${{secrets.NUGET_KEY}}
 
+      - name: Build version
+        id: version-builder
+        if: inputs.publishable
+        uses: sketch7/version-builder-action@main
+        with:
+          versionSuffix: "devx"
+
           # only for testing version
-      - name: Publish NuGet
-        run: |
-          npm run publish:dev
+      # - name: Publish NuGet
+      #   run: |
+      #     npm run publish:dev
       - name: Print version
-        run: echo "::notice::Package version ${{ github.env.VERSION }}"
+        run: echo "::notice::Package version ${{ steps.version-builder.outputs.version }}"
 
       - uses: actions/cache@v3
         with:
