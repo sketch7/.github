@@ -37,7 +37,7 @@ jobs:
           dotnet-version: ${{ inputs.dotnet-version }}
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: true
-          SKETCH7_NUGET_API_KEY: ${{secrets.NUGET_KEY}}
+          NUGET_AUTH_TOKEN: ${{ secrets.NUGET_KEY }}
 
       - uses: actions/cache@v3
         with:
