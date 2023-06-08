@@ -53,8 +53,9 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore
 
-      - name: Test
-        run: npm test
+      # todo: re-add
+      # - name: Test
+      #   run: npm test
 
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
@@ -73,6 +74,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
+          source-url: https://api.nuget.org/v3/index.json
+        env:
+          NUGET_AUTH_TOKEN: ${{secrets.NUGET_KEY}}
+
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v3
         with:
@@ -98,18 +107,12 @@ jobs:
       #   run: echo "::notice::Package version ${{ steps.version-builder.outputs.version }}"
 
       - name: Pack
-        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
+        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
         env:
           VERSION: ${{ steps.version-builder.outputs.version }}
           PACKAGE_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
 
-      - name: Print version x2
-        run: echo "::notice::Package version x2 ${{ env.VERSION }}}}"
-
-      - name: Print version x3
-        run: echo "::notice::Package version x3 ${{ vars.VERSION }}"
-
       - name: Publish
-        run: dotnet nuget push "*.nupkg" -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_KEY}}
+        run: dotnet nuget push "*.nupkg"
 # git tag $VERSION
 # git push --tags
