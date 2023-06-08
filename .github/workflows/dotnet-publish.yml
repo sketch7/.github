@@ -12,7 +12,7 @@ on:
         description: Whether packages should be deployed to Nuget server
         type: boolean
         # default: ${{ github.ref_name == 'develop' || github.ref_name == 'master' || endsWith(github.ref_name, '.x') }} # || endsWith(github.ref_name, '-workflow')
-        default: ${{ contains(fromJSON('["develop", "master", "workflow"]'), github.ref_name) || endsWith(github.ref_name, '.x') }} # || endsWith(github.ref_name, '-workflow')
+        default: ${{ contains(fromJSON('["develop", "master", "workflow", "feature/reusable-workflow-setup"]'), github.ref_name) || endsWith(github.ref_name, '.x') }} # || endsWith(github.ref_name, '-workflow')
         required: false
 
 jobs:
