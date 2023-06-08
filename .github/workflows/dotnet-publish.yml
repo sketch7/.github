@@ -18,7 +18,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   # NUGET_AUTH_TOKEN: ${{ secrets.NUGET_KEY }}
-  NUGET_AUTH_TOKEN: ""
+  NUGET_AUTH_TOKEN: ${{ secrets.chiko}}
 
 jobs:
   build:
