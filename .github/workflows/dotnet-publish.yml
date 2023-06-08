@@ -113,16 +113,26 @@ jobs:
           preid-branches: "master,refs/heads/feature/reusable-workflow" # todo: remove and use default
           # preid: "rc"
 
-      # - name: Print version
-      #   run: echo "::notice::Package version ${{ steps.version-builder.outputs.version }}"
+      - name: Set version envs
+        run: |
+          echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
+          echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.nonSemverVersion }}" >> $GITHUB_ENV
+
+      - name: Print version $V
+        run: echo "::notice::Package version $VERSION"
+      - name: Print version env.v
+        run: echo "::notice::Package version ${{env.VERSION}}}}"
+      - name: Print version github.env.v
+        run: echo "::notice::Package version ${{github.env.VERSION}}}}"
 
       - name: Pack
-        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
+        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
         env:
           VERSION: ${{ steps.version-builder.outputs.version }}
-          PACKAGE_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
+          ASSEMBLY_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
 
       - name: Publish
         run: dotnet nuget push "*.nupkg"
+
 # git tag $VERSION
 # git push --tags
