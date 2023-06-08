@@ -90,7 +90,7 @@ jobs:
       #   run: echo "::notice::Package version ${{ steps.version-builder.outputs.version }}"
 
       - name: Pack
-        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build
+        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$PACKAGE_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
         env:
           VERSION: ${{ steps.version-builder.outputs.version }}
           PACKAGE_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
