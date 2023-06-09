@@ -19,9 +19,9 @@ on:
         default: ${{ contains(fromJSON('["develop", "master", "workflow", "feature/ci"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
       publish-command:
-        description: "Command to run to publish packages (defaults to: `npm run publish` NOTE: NOT `npm publish`)"
+        description: "Command to run to publish packages (defaults to: `npm run release` NOTE: NOT `npm publish`)"
         type: string
-        default: npm run publish
+        default: npm run release
         required: false
     secrets:
       npm-auth-token:
@@ -70,7 +70,7 @@ jobs:
         if: inputs.publishable
         run: echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
 
-      - name: Set Package version
+      - name: Set package version
         if: inputs.publishable
         run: npm version $VERSION --allow-same-version=true --git-tag-version=false
 
