@@ -130,12 +130,10 @@ jobs:
 
       - name: Pack
         run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
-        # env:
-        #   VERSION: ${{ steps.version-builder.outputs.version }}
-        #   ASSEMBLY_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
 
       - name: Publish
-        run: dotnet nuget push "*.nupkg"
+        run: dotnet nuget push "*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
+
     outputs:
       version: ${{ steps.version-builder.outputs.version }}
 
