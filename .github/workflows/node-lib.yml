@@ -65,6 +65,10 @@ jobs:
         if: inputs.publishable
         run: echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
 
+      - name: Set Package version
+        if: inputs.publishable
+        run: npm version $VERSION --allow-same-version=true --git-tag-version=false
+
       - name: Restore dependencies
         run: npm ci
 
