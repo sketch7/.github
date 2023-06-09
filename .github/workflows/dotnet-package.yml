@@ -81,14 +81,12 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore
 
-        # todo: uncomment
-      # - name: Test
-      #   run: npm test
+      - name: Test
+        run: npm test
 
       - name: Pack
         if: inputs.publishable
         run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
-
 
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
@@ -121,14 +119,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: packages # optional else it will download all artifacts.
-
-      # - uses: actions/cache@v3
-      #   with:
-      #     path: ~/.nuget/packages
-      #     # Look to see if there is a cache hit for the corresponding requirements file
-      #     key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-nuget
 
       - name: Publish
         run: dotnet nuget push "*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
