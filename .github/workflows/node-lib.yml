@@ -15,8 +15,8 @@ on:
         default: 'https://registry.npmjs.org'
       publishable:
         description: Determines whether packages should be published to Nuget
-        type: boolean # todo: remove feature/ci-and-clean
-        default: ${{ contains(fromJSON('["develop", "master", "workflow", "feature/ci-and-clean"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
+        type: boolean # todo: remove feature/ci
+        default: ${{ contains(fromJSON('["develop", "master", "workflow", "feature/ci"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
     secrets:
       npm-auth-token:
@@ -57,8 +57,8 @@ jobs:
         if: inputs.publishable
         uses: sketch7/version-builder-action@main
         with:
-          preid-branches: "master,feature/ci-and-clean"
-          # preid-branches: "master,refs/heads/workflow"
+          preid-branches: "master,feature/ci" # todo: comment
+          # preid-branches: "master,workflow"
           # preid: "rc"
 
       - name: Set version envs
