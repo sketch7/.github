@@ -45,10 +45,8 @@ jobs:
           NPM_V=$(npm -v)
           echo npm version':' $NPM_V
           DOTNET_CLI_V=$(dotnet --version)
-          echo dotnet cli version':' $DOTNET_CLI_V
           echo dotnet input version':' ${{ inputs.dotnet-version }}
-          echo "::notice::dotnet cli version 2 $DOTNET_CLI_V"
-          echo github ref_name: ${{ github.ref_name }}
+          echo "::notice::dotnet cli version $DOTNET_CLI_V"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
@@ -121,11 +119,7 @@ jobs:
           echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.nonSemverVersion }}" >> $GITHUB_ENV
 
-      # - name: Print version $V
-      #   run: echo "::notice::Package version $VERSION"
-      # - name: Print version env.v
-      #   run: echo "::notice::Package version ${{env.VERSION}}}}"
-
+        # todo: try move in build to avoid double build? --no-restore --no-build not working after restore
       - name: Pack
         run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
 
