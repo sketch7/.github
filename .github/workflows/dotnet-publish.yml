@@ -22,6 +22,10 @@ on:
       nuget-auth-token:
         description: Auth token for Nuget
         required: false
+    outputs:
+      version:
+        description: "Version of the package"
+        value: ${{ jobs.deploy.outputs.version }}
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -91,6 +95,7 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: ${{ inputs.dotnet-version }}
+          source-url: ${{ inputs.source-url }}
 
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v3
@@ -122,17 +127,17 @@ jobs:
         run: echo "::notice::Package version $VERSION"
       - name: Print version env.v
         run: echo "::notice::Package version ${{env.VERSION}}}}"
-      - name: Print version github.env.v
-        run: echo "::notice::Package version ${{github.env.VERSION}}}}"
 
       - name: Pack
         run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
-        env:
-          VERSION: ${{ steps.version-builder.outputs.version }}
-          ASSEMBLY_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
+        # env:
+        #   VERSION: ${{ steps.version-builder.outputs.version }}
+        #   ASSEMBLY_VERSION: ${{ steps.version-builder.outputs.nonSemverVersion }}
 
       - name: Publish
         run: dotnet nuget push "*.nupkg"
+    outputs:
+      version: ${{ steps.version-builder.outputs.version }}
 
 # git tag $VERSION
 # git push --tags
