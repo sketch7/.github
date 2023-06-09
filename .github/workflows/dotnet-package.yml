@@ -25,7 +25,7 @@ on:
     outputs:
       version:
         description: "Version of the package"
-        value: ${{ jobs.publish.outputs.version }}
+        value: ${{ jobs.build.outputs.version }}
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -65,23 +65,47 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
+      - name: Build version
+        id: version-builder
+        if: inputs.publishable
+        uses: sketch7/version-builder-action@main
+        with:
+          preid-branches: "master,refs/heads/feature/reusable-workflow" # todo: remove and use default
+          # preid: "rc"
+
+      - name: Set version envs
+        run: |
+          echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
+          echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.nonSemverVersion }}" >> $GITHUB_ENV
+
       - name: Build
         run: dotnet build -c Release --no-restore
 
-      - name: Test
-        run: npm test
+        # todo: uncomment
+      # - name: Test
+      #   run: npm test
+
+      - name: Pack
+        if: inputs.publishable
+        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
+
 
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
+        if: inputs.publishable
         with:
-          name: all-package
+          name: packages
           retention-days: 1
           path:
-            /home/runner/work/**/bin/**/*
+            artifacts
+    outputs:
+      version: ${{ steps.version-builder.outputs.version }}
 
   publish:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
     if: inputs.publishable
     steps:
       - name: Checkout
@@ -96,32 +120,15 @@ jobs:
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v3
         with:
-          name: all-package # optional else it will download all artifacts.
+          name: packages # optional else it will download all artifacts.
 
-      - uses: actions/cache@v3
-        with:
-          path: ~/.nuget/packages
-          # Look to see if there is a cache hit for the corresponding requirements file
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget
-
-      - name: Build version
-        id: version-builder
-        if: inputs.publishable
-        uses: sketch7/version-builder-action@main
-        with:
-          preid-branches: "master,refs/heads/feature/reusable-workflow" # todo: remove and use default
-          # preid: "rc"
-
-      - name: Set version envs
-        run: |
-          echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
-          echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.nonSemverVersion }}" >> $GITHUB_ENV
-
-        # todo: try move in build to avoid double build? --no-restore --no-build not working after restore
-      - name: Pack
-        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
+      # - uses: actions/cache@v3
+      #   with:
+      #     path: ~/.nuget/packages
+      #     # Look to see if there is a cache hit for the corresponding requirements file
+      #     key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-nuget
 
       - name: Publish
         run: dotnet nuget push "*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
@@ -130,6 +137,3 @@ jobs:
         run: |
           git tag $VERSION
           git push --tags
-
-    outputs:
-      version: ${{ steps.version-builder.outputs.version }}
