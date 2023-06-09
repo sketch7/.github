@@ -50,7 +50,7 @@ jobs:
           echo npm version':' $NPM_V
           NODE_V=$(node --version)
           echo node input version':' ${{ inputs.node-version }}
-          echo "::notice::node version $NODE_V"
+          echo "::notice::node version: $NODE_V" / npm version: $NPM_V
 
       - name: Build version
         id: version-builder
