@@ -1,0 +1,136 @@
+name: node library build/publish
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node version to use (defaults to 18)
+        required: false
+        type: string
+        default: '18'
+      registry-url:
+        description: NPM registry to use
+        required: false
+        type: string
+        default: 'https://registry.npmjs.org'
+      publishable:
+        description: Determines whether packages should be published to Nuget
+        type: boolean # todo: remove feature/ci
+        default: ${{ contains(fromJSON('["develop", "master", "workflow", "feature/ci"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
+        required: false
+    secrets:
+      npm-auth-token:
+        description: Auth token for NPM
+        required: false
+    outputs:
+      version:
+        description: "Version of the package"
+        value: ${{ jobs.build.outputs.version }}
+
+env:
+  NODE_AUTH_TOKEN: ${{ secrets.npm-auth-token }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: ${{ inputs.registry-url }}
+          cache: 'npm'
+
+      - name: Print environment versions
+        run: |
+          NPM_V=$(npm -v)
+          echo npm version':' $NPM_V
+          NODE_V=$(node --version)
+          echo node input version':' ${{ inputs.node-version }}
+          echo "::notice::node version: $NODE_V" / npm version: $NPM_V
+
+      - name: Build version
+        id: version-builder
+        if: inputs.publishable
+        uses: sketch7/version-builder-action@main
+        with:
+          preid-branches: "master,feature/ci" # todo: comment
+          # preid-branches: "master,workflow"
+          # preid: "rc"
+
+      - name: Set version envs
+        if: inputs.publishable
+        run: echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
+
+      - name: Set Package version
+        if: inputs.publishable
+        run: npm version $VERSION --allow-same-version=true --git-tag-version=false
+
+      - name: Restore dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Publish
+        run: npm publish
+        if: inputs.publishable
+
+      - name: Git tag
+        if: inputs.publishable
+        run: |
+          git tag $VERSION
+          git push origin $VERSION
+      # - name: Pack
+      #   if: inputs.publishable
+      #   run: npm pack # note this might be tricky to support multiple packages
+
+      # - name: 'Upload Artifact'
+      #   uses: actions/upload-artifact@v3
+      #   if: inputs.publishable
+      #   with:
+      #     name: packages
+      #     retention-days: 1
+      #     path:
+      #       '*.tgz'
+    outputs:
+      version: ${{ steps.version-builder.outputs.version }}
+
+  # todo: do it as a separate job? - tricky 
+  # publish:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     VERSION: ${{ needs.build.outputs.version }}
+  #   if: inputs.publishable
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+
+  #     - name: Setup Node
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: ${{ inputs.node-version }}
+  #         cache: 'npm'
+
+  #     - name: Download all workflow run artifacts
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: packages # optional else it will download all artifacts.
+
+  #     - name: Publish
+  #       run: npm publish
+
+  #     - name: Git tag
+  #       run: |
+  #         git tag $VERSION
+  #         git push origin $VERSION
