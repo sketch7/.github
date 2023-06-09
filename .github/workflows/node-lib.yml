@@ -1,4 +1,4 @@
-name: node package build/publish
+name: node library build/publish
 
 on:
   workflow_call:
