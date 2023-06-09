@@ -74,6 +74,7 @@ jobs:
           # preid: "rc"
 
       - name: Set version envs
+        if: inputs.publishable
         run: |
           echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.nonSemverVersion }}" >> $GITHUB_ENV
