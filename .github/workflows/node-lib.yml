@@ -72,7 +72,7 @@ jobs:
       - name: Restore dependencies
         run: npm ci
 
-      - name: Restore dependencies
+      - name: Lint
         run: npm run lint --if-present
 
       - name: Build
