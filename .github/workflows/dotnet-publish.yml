@@ -1,4 +1,4 @@
-name: Dotnet Library Build
+name: dotnet package build/publish
 
 on:
   workflow_call:
@@ -25,7 +25,7 @@ on:
     outputs:
       version:
         description: "Version of the package"
-        value: ${{ jobs.deploy.outputs.version }}
+        value: ${{ jobs.publish.outputs.version }}
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -71,19 +71,18 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore
 
-      # todo: re-add
-      # - name: Test
-      #   run: npm test
+      - name: Test
+        run: npm test
 
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
         with:
           name: all-package
           retention-days: 1
-          path: 
+          path:
             /home/runner/work/**/bin/**/*
 
-  deploy:
+  publish:
     needs: build
     runs-on: ubuntu-latest
     if: inputs.publishable
@@ -123,10 +122,10 @@ jobs:
           echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.nonSemverVersion }}" >> $GITHUB_ENV
 
-      - name: Print version $V
-        run: echo "::notice::Package version $VERSION"
-      - name: Print version env.v
-        run: echo "::notice::Package version ${{env.VERSION}}}}"
+      # - name: Print version $V
+      #   run: echo "::notice::Package version $VERSION"
+      # - name: Print version env.v
+      #   run: echo "::notice::Package version ${{env.VERSION}}}}"
 
       - name: Pack
         run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./ -c release --include-symbols -p:SymbolPackageFormat=snupkg
@@ -134,8 +133,10 @@ jobs:
       - name: Publish
         run: dotnet nuget push "*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
 
+      - name: Git tag
+        run: |
+          git tag $VERSION
+          git push --tags
+
     outputs:
       version: ${{ steps.version-builder.outputs.version }}
-
-# git tag $VERSION
-# git push --tags
