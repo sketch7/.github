@@ -18,6 +18,11 @@ on:
         type: boolean # todo: remove feature/ci
         default: ${{ contains(fromJSON('["develop", "master", "workflow", "feature/ci"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
+      publish-command:
+        description: "Command to run to publish packages (defaults to: `npm run release` NOTE: NOT `npm publish`)"
+        type: string
+        default: npm run release
+        required: false
     secrets:
       npm-auth-token:
         description: Auth token for NPM
@@ -65,7 +70,7 @@ jobs:
         if: inputs.publishable
         run: echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
 
-      - name: Set Package version
+      - name: Set package version
         if: inputs.publishable
         run: npm version $VERSION --allow-same-version=true --git-tag-version=false
 
@@ -75,14 +80,19 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
+        # todo: replace with version replacer action
+      - name: Prerelease build
+        if: inputs.publishable
+        run: npm run pre-release-build --if-present
+
       - name: Build
         run: npm run build
 
       - name: Test
-        run: npm test
+        run: npm test --if-present
 
       - name: Publish
-        run: npm publish
+        run: ${{ inputs.publish-command }}
         if: inputs.publishable
 
       - name: Git tag
