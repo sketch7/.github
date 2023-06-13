@@ -13,6 +13,11 @@ on:
         type: boolean
         default: ${{ contains(fromJSON('["develop", "master", "workflow"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
+      preid-branches:
+        description: "Branches to be used for preid, as comma delimited to use for versioning e.g. 'master,develop'."
+        type: string
+        default: main,master,develop
+        required: false
       source-url:
         description: Default nuget source url
         type: string
@@ -69,8 +74,9 @@ jobs:
         id: version-builder
         if: inputs.publishable
         uses: sketch7/version-builder-action@main
-        # with:
-          # preid-branches: "master,refs/heads/workflow"
+        with:
+          preid-branches: ${{ inputs.preid-branches }}
+          # preid-branches: "master,workflow"
           # preid: "rc"
 
       - name: Set version envs

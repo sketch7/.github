@@ -18,6 +18,11 @@ on:
         type: boolean # todo: remove feature/ci
         default: ${{ contains(fromJSON('["develop", "master", "workflow", "feature/ci"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
+      preid-branches:
+        description: "Branches to be used for preid, as comma delimited to use for versioning e.g. 'master,develop'."
+        type: string
+        default: main,master,develop
+        required: false
       publish-command:
         description: "Command to run to publish packages (defaults to: `npm run release` NOTE: NOT `npm publish`)"
         type: string
@@ -62,7 +67,7 @@ jobs:
         if: inputs.publishable
         uses: sketch7/version-builder-action@main
         with:
-          preid-branches: "master,feature/ci" # todo: comment
+          preid-branches: ${{ inputs.preid-branches }}
           # preid-branches: "master,workflow"
           # preid: "rc"
 
