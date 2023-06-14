@@ -100,7 +100,6 @@ jobs:
           include: "src/version.ts"
           regex: false
 
-        # todo: replace with version replacer action
       - name: Prerelease build
         if: inputs.publishable
         run: npm run pre-release-build --if-present
