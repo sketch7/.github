@@ -96,7 +96,7 @@ jobs:
         uses: jacobtomlinson/gha-find-replace@v3
         with:
           find: "0.0.0-PLACEHOLDER"
-          replace: ${{ env.VERSION }}}
+          replace: ${{ env.VERSION }}
           include: "src/version.ts"
           regex: false
 
