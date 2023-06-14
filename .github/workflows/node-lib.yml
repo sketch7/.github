@@ -70,7 +70,7 @@ jobs:
       - name: Build version
         id: version-builder
         if: inputs.publishable
-        uses: sketch7/version-builder-action@main
+        uses: sketch7/version-builder-action@v1
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
@@ -97,7 +97,7 @@ jobs:
         with:
           find: "0.0.0-PLACEHOLDER"
           replace: "$VERSION"
-          include: "./src/version.ts"
+          include: "src/version.ts"
           regex: false
 
         # todo: replace with version replacer action
