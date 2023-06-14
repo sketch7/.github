@@ -37,14 +37,6 @@ on:
         description: "Version of the package"
         value: ${{ jobs.build.outputs.version }}
 
-  workflow_dispatch:
-    inputs:
-      publish:
-        description: 'Publish2 🚀'
-        required: false
-        type: boolean
-        default: false
-
 env:
   NODE_AUTH_TOKEN: ${{ secrets.npm-auth-token }}
 
