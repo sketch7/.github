@@ -15,8 +15,13 @@ on:
         default: 'https://registry.npmjs.org'
       publishable:
         description: Determines whether packages should be published to Nuget
-        type: boolean # todo: remove feature/ci
-        default: ${{ contains(fromJSON('["develop", "master", "workflow", "feature/ci"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
+        type: boolean
+        default: ${{ contains(fromJSON('["develop", "master", "workflow"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
+        required: false
+      force-preid:
+        description: "Forces preid versioning even if branch not satisfied."
+        type: boolean
+        default: false
         required: false
       preid-branches:
         description: "Branches to be used for preid, as comma delimited to use for versioning e.g. 'master,develop'."
@@ -68,6 +73,7 @@ jobs:
         uses: sketch7/version-builder-action@main
         with:
           preid-branches: ${{ inputs.preid-branches }}
+          force-preid: ${{ inputs.force-preid }}
           # preid-branches: "master,workflow"
           # preid: "rc"
 
