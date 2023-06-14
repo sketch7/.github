@@ -85,6 +85,15 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
+      - name: Replace version placeholder
+        if: inputs.publishable
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "0.0.0-PLACEHOLDER"
+          replace: "$VERSION"
+          include: "./src/version.ts"
+          regex: false
+
         # todo: replace with version replacer action
       - name: Prerelease build
         if: inputs.publishable
