@@ -91,7 +91,7 @@ jobs:
         run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
 
       - name: "Upload Artifact"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: inputs.publishable
         with:
           name: packages
@@ -117,7 +117,7 @@ jobs:
           source-url: ${{ inputs.source-url }}
 
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: packages # optional else it will download all artifacts.
 
