@@ -7,7 +7,7 @@ on:
         description: dotnet version to use (defaults to 6.0.x)
         required: false
         type: string
-        default: '6.0.x'
+        default: "6.0.x"
       publishable:
         description: Determines whether packages should be published to Nuget
         type: boolean
@@ -21,7 +21,7 @@ on:
       source-url:
         description: Default nuget source url
         type: string
-        default: 'https://api.nuget.org/v3/index.json'
+        default: "https://api.nuget.org/v3/index.json"
         required: false
     secrets:
       nuget-auth-token:
@@ -37,6 +37,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
   build:
@@ -58,14 +59,8 @@ jobs:
         with:
           dotnet-version: ${{ inputs.dotnet-version }}
           source-url: ${{ inputs.source-url }}
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          # Look to see if there is a cache hit for the corresponding requirements file
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
 
       - name: Restore dependencies
         run: dotnet restore
@@ -95,14 +90,13 @@ jobs:
         if: inputs.publishable
         run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
 
-      - name: 'Upload Artifact'
+      - name: "Upload Artifact"
         uses: actions/upload-artifact@v3
         if: inputs.publishable
         with:
           name: packages
           retention-days: 1
-          path:
-            artifacts
+          path: artifacts
     outputs:
       version: ${{ steps.version-builder.outputs.version }}
 
