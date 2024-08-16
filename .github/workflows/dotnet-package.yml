@@ -60,6 +60,7 @@ jobs:
           dotnet-version: ${{ inputs.dotnet-version }}
           source-url: ${{ inputs.source-url }}
           cache: true
+          cache-dependency-path: "**/packages.lock.json"
 
       - name: Restore dependencies
         run: dotnet restore
