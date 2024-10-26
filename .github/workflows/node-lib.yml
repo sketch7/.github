@@ -38,6 +38,16 @@ on:
         type: string
         default: npm run release
         required: false
+      version-replace:
+        description: "Version to replace in the source code"
+        type: string
+        default: "0.0.0-PLACEHOLDER"
+        required: false
+      version-replace-glob:
+        description: "Glob pattern to search for version placeholder"
+        type: string
+        default: "src/version.ts"
+        required: false
     secrets:
       npm-auth-token:
         description: Auth token for NPM
@@ -126,9 +136,9 @@ jobs:
         if: inputs.publishable
         uses: jacobtomlinson/gha-find-replace@v3
         with:
-          find: "0.0.0-PLACEHOLDER"
+          find: ${{ inputs.version-replace }}
           replace: ${{ env.VERSION }}
-          include: "src/version.ts"
+          include: ${{ inputs.version-replace-glob }}
           regex: false
 
       - name: Prerelease build
