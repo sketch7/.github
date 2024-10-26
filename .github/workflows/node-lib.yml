@@ -132,14 +132,22 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
+      # - name: Replace version placeholder
+      #   if: inputs.publishable
+      #   uses: jacobtomlinson/gha-find-replace@v3
+      #   with:
+      #     find: ${{ inputs.version-replace }}
+      #     replace: ${{ env.VERSION }}
+      #     include: ${{ inputs.version-replace-glob }}
+      #     regex: false
+
       - name: Replace version placeholder
         if: inputs.publishable
-        uses: jacobtomlinson/gha-find-replace@v3
+        uses: richardrigutins/replace-in-files@v2
         with:
-          find: ${{ inputs.version-replace }}
-          replace: ${{ env.VERSION }}
-          include: ${{ inputs.version-replace-glob }}
-          regex: false
+          files: ${{ inputs.version-replace-glob }}
+          search-text: ${{ inputs.version-replace }}
+          replacement-text: ${{ env.VERSION }}
 
       - name: Prerelease build
         if: inputs.publishable
