@@ -122,24 +122,18 @@ jobs:
             exit 1
           fi
 
-      # todo: cache nx
+      # todo: cache nx?
       # - name: Cache nx
       #   uses: actions/cache@v4
       #   with:
       #     path: .nx/cache
       #     key: ${{ runner.os }}-nx
 
+      # - name: Derive appropriate SHAs for base and head for `nx affected` commands
+      #   uses: nrwl/nx-set-shas@v4
+
       - name: Lint
         run: npm run lint --if-present
-
-      # - name: Replace version placeholder
-      #   if: inputs.publishable
-      #   uses: jacobtomlinson/gha-find-replace@v3
-      #   with:
-      #     find: ${{ inputs.version-replace }}
-      #     replace: ${{ env.VERSION }}
-      #     include: ${{ inputs.version-replace-glob }}
-      #     regex: false
 
       - name: Replace version placeholder
         if: inputs.publishable
