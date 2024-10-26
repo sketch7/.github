@@ -7,14 +7,19 @@ on:
         description: Node version to use (defaults to 18)
         required: false
         type: string
-        default: '18'
+        default: "18"
+      package-manager:
+        description: "Specify which package manager to use for repo e.g. 'npm', 'pnpm' (defaults: 'npm')"
+        required: false
+        type: string
+        default: npm
       registry-url:
         description: NPM registry to use
         required: false
         type: string
-        default: 'https://registry.npmjs.org'
+        default: "https://registry.npmjs.org"
       publishable:
-        description: Determines whether packages should be published to Nuget
+        description: Determines whether packages should be published
         type: boolean
         default: ${{ contains(fromJSON('["develop", "master", "workflow"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
@@ -33,6 +38,16 @@ on:
         type: string
         default: npm run release
         required: false
+      version-replace:
+        description: "Version to replace in the source code"
+        type: string
+        default: "0.0.0-PLACEHOLDER"
+        required: false
+      version-replace-glob:
+        description: "Glob pattern to search for version placeholder"
+        type: string
+        default: "src/version.ts"
+        required: false
     secrets:
       npm-auth-token:
         description: Auth token for NPM
@@ -49,15 +64,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Validate input
+        run: |
+          if [[ "${{ inputs.package-manager }}" != "npm" && "${{ inputs.package-manager }}" != "pnpm" ]]; then
+            echo "Invalid package manager: '${{ inputs.package-manager}}'. Please use 'npm' or 'pnpm'."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        if: inputs.package-manager == 'pnpm'
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
           registry-url: ${{ inputs.registry-url }}
-          cache: 'npm'
+          cache: ${{ inputs.package-manager }}
 
       - name: Print environment versions
         run: |
@@ -86,19 +112,36 @@ jobs:
         run: npm version $VERSION --allow-same-version=true --git-tag-version=false
 
       - name: Restore dependencies
-        run: npm ci
+        run: |
+          if [[ ${{ inputs.package-manager }} == "npm" ]]; then
+            npm ci
+          elif [[ ${{ inputs.package-manager }} == "pnpm" ]]; then
+            pnpm i
+          else
+            echo "::error ::Package manager '${{ inputs.package-manager }}' not handled!"
+            exit 1
+          fi
+
+      # todo: cache nx?
+      # - name: Cache nx
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: .nx/cache
+      #     key: ${{ runner.os }}-nx
+
+      # - name: Derive appropriate SHAs for base and head for `nx affected` commands
+      #   uses: nrwl/nx-set-shas@v4
 
       - name: Lint
         run: npm run lint --if-present
 
       - name: Replace version placeholder
         if: inputs.publishable
-        uses: jacobtomlinson/gha-find-replace@v3
+        uses: richardrigutins/replace-in-files@v2
         with:
-          find: "0.0.0-PLACEHOLDER"
-          replace: ${{ env.VERSION }}
-          include: "src/version.ts"
-          regex: false
+          files: ${{ inputs.version-replace-glob }}
+          search-text: ${{ inputs.version-replace }}
+          replacement-text: ${{ env.VERSION }}
 
       - name: Prerelease build
         if: inputs.publishable
@@ -134,7 +177,7 @@ jobs:
     outputs:
       version: ${{ steps.version-builder.outputs.version }}
 
-  # todo: do it as a separate job? - tricky 
+  # todo: do it as a separate job? - tricky
   # publish:
   #   needs: build
   #   runs-on: ubuntu-latest
