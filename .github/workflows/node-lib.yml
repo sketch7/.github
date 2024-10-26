@@ -19,7 +19,7 @@ on:
         type: string
         default: "https://registry.npmjs.org"
       publishable:
-        description: Determines whether packages should be published to Nuget
+        description: Determines whether packages should be published
         type: boolean
         default: ${{ contains(fromJSON('["develop", "master", "workflow"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
