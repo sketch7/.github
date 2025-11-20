@@ -4,10 +4,14 @@ on:
   workflow_call:
     inputs:
       node-version:
-        description: Node version to use (defaults to 18)
+        description: Node version to use (defaults to 24)
         required: false
         type: string
-        default: "18"
+        default: "24"
+      node-version-file:
+        description: "File containing the version Spec of the version to use. Examples: package.json, .nvmrc, .node-version, .tool-versions."
+        required: false
+        type: string
       package-manager:
         description: "Specify which package manager to use for repo e.g. 'npm', 'pnpm' (defaults: 'npm')"
         required: false
@@ -72,16 +76,17 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         if: inputs.package-manager == 'pnpm'
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
+          node-version-file: ${{ inputs.node-version-file }}
           registry-url: ${{ inputs.registry-url }}
           cache: ${{ inputs.package-manager }}
 
