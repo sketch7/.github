@@ -7,11 +7,12 @@ on:
         description: Node version to use (defaults to 24)
         required: false
         type: string
-        default: "24"
+        # default: "24"
       node-version-file:
         description: "File containing the version Spec of the version to use. Examples: package.json, .nvmrc, .node-version, .tool-versions."
         required: false
         type: string
+        default: "package.json"
       package-manager:
         description: "Specify which package manager to use for repo e.g. 'npm', 'pnpm' (defaults: 'npm')"
         required: false
