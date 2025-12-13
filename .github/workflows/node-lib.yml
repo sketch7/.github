@@ -52,17 +52,14 @@ on:
         type: string
         default: "src/version.ts"
         required: false
-    secrets:
-      npm-auth-token:
-        description: Auth token for NPM
-        required: false
+    # secrets:
+    #   npm-auth-token:
+    #     description: Auth token for NPM
+    #     required: false
     outputs:
       version:
         description: "Version of the package"
         value: ${{ jobs.build.outputs.version }}
-
-env:
-  NODE_AUTH_TOKEN: ${{ secrets.npm-auth-token }}
 
 jobs:
   build:
