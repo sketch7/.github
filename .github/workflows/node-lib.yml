@@ -7,11 +7,12 @@ on:
         description: Node version to use (defaults to 24)
         required: false
         type: string
-        default: "24"
+        # default: "24"
       node-version-file:
         description: "File containing the version Spec of the version to use. Examples: package.json, .nvmrc, .node-version, .tool-versions."
         required: false
         type: string
+        default: "package.json"
       package-manager:
         description: "Specify which package manager to use for repo e.g. 'npm', 'pnpm' (defaults: 'npm')"
         required: false
@@ -52,17 +53,14 @@ on:
         type: string
         default: "src/version.ts"
         required: false
-    secrets:
-      npm-auth-token:
-        description: Auth token for NPM
-        required: false
+    # secrets:
+    #   npm-auth-token:
+    #     description: Auth token for NPM
+    #     required: false
     outputs:
       version:
         description: "Version of the package"
         value: ${{ jobs.build.outputs.version }}
-
-env:
-  NODE_AUTH_TOKEN: ${{ secrets.npm-auth-token }}
 
 jobs:
   build:
@@ -76,7 +74,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
