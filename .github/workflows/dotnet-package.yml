@@ -23,6 +23,10 @@ on:
         type: string
         default: "https://api.nuget.org/v3/index.json"
         required: false
+      solution-file:
+        description: Solution file to build (optional - if not specified, will auto-detect)
+        type: string
+        required: false
     secrets:
       nuget-auth-token:
         description: Auth token for Nuget
@@ -39,9 +43,14 @@ env:
   NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
+permissions:
+  contents: write # for git tag push
+  packages: write # if publishing to GitHub Packages
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -63,7 +72,7 @@ jobs:
           cache-dependency-path: "./Directory.Packages.props"
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore ${{ inputs.solution-file }}
 
       - name: Build version
         id: version-builder
@@ -81,14 +90,14 @@ jobs:
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.nonSemverVersion }}" >> $GITHUB_ENV
 
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build ${{ inputs.solution-file }} -c Release --no-restore
 
       - name: Test
         run: npm test
 
       - name: Pack
         if: inputs.publishable
-        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
+        run: dotnet pack ${{ inputs.solution-file }} -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
 
       - name: "Upload Artifact"
         uses: actions/upload-artifact@v6
