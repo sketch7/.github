@@ -53,10 +53,10 @@ on:
         type: string
         default: "src/version.ts"
         required: false
-    # secrets:
-    #   npm-auth-token:
-    #     description: Auth token for NPM
-    #     required: false
+    secrets:
+      npm-auth-token:
+        description: Auth token for NPM
+        required: false
     outputs:
       version:
         description: "Version of the package"
@@ -87,6 +87,7 @@ jobs:
           node-version-file: ${{ inputs.node-version-file }}
           registry-url: ${{ inputs.registry-url }}
           cache: ${{ inputs.package-manager }}
+          token: ${{ secrets.npm-auth-token }}
 
       - name: Print environment versions
         run: |
