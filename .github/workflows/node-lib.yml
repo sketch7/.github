@@ -87,7 +87,11 @@ jobs:
           node-version-file: ${{ inputs.node-version-file }}
           registry-url: ${{ inputs.registry-url }}
           cache: ${{ inputs.package-manager }}
-          token: ${{ secrets.npm-auth-token }}
+          # token: ${{ secrets.npm-auth-token }}
+
+      - name: Authenticate to NPM registry
+        if: inputs.publishable && secrets.npm-auth-token != ''
+        run: npm config set //${{ inputs.registry-url }}/:_authToken=${{ secrets.npm-auth-token }}
 
       - name: Print environment versions
         run: |
