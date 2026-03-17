@@ -140,7 +140,7 @@ jobs:
         run: npm run lint --if-present
 
       - name: Replace version placeholder
-        if: inputs.publishable
+        if: inputs.publishable && inputs.version-replace-glob != ''
         uses: richardrigutins/replace-in-files@v2
         with:
           files: ${{ inputs.version-replace-glob }}
