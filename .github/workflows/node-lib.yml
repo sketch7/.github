@@ -156,8 +156,6 @@ jobs:
 
       - name: Test
         run: npm test --if-present
-      - name: Git Status
-        run: git status
 
       - name: Publish
         run: ${{ inputs.publish-command }}
