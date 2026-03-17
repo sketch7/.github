@@ -90,7 +90,8 @@ jobs:
           # token: ${{ secrets.npm-auth-token }}
 
       - name: Authenticate to NPM registry
-        if: inputs.publishable && secrets.npm-auth-token != ''
+        # todo: only when custom registry and publishable
+        if: inputs.publishable
         run: npm config set //${{ inputs.registry-url }}/:_authToken=${{ secrets.npm-auth-token }}
 
       - name: Print environment versions
