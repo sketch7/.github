@@ -98,7 +98,7 @@ jobs:
         run: |
           npm config set @arcane:registry https://f.feedz.io/sketch7/arcane/npm/
           npm config set //f.feedz.io/sketch7/arcane/npm/:_authToken ${{ secrets.private-npm-auth-token }}
-          npm config set always-auth true
+          # npm config set always-auth true
           # npm config set //${{ inputs.private-registry-url }}/:_authToken=${{ secrets.private-npm-auth-token }}
 
       - name: Print environment versions
