@@ -176,11 +176,11 @@ jobs:
         run: ${{ inputs.publish-command }} -- --tag ${{ steps.version-builder.outputs.tag }}
         if: inputs.publishable
 
-      - name: Git tag
-        if: inputs.publishable
-        run: |
-          git tag $VERSION
-          git push origin $VERSION
+      # - name: Git tag
+      #   if: inputs.publishable
+      #   run: |
+      #     git tag $VERSION
+      #     git push origin $VERSION
       # - name: Pack
       #   if: inputs.publishable
       #   run: npm pack # note this might be tricky to support multiple packages
