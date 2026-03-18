@@ -28,7 +28,7 @@ on:
         required: false
         type: string
       private-npm-scope:
-        description: NPM private scope to use.
+        description: NPM private scope to use. When omitted, the scope is auto-resolved from the `name` field in `package.json` and `private-registry-url` is used.
         required: false
         type: string
       publishable:
@@ -100,10 +100,9 @@ jobs:
       - name: Configure private registry npm auth
         if: inputs.private-registry-url != ''
         # uses: sketch7/npm-auth-action@v1
-        uses: sketch7/npm-auth-action@main
-        # uses: sketch7/npm-auth-action@feature/resolve-scope
+        uses: sketch7/npm-auth-action@feature/resolve-scope
         with:
-          scope: ${{ inputs.private-npm-scope }} # todo: auto resolve from package.json
+          scope: ${{ inputs.private-npm-scope }}
           registry: ${{ inputs.private-registry-url }}
           token: ${{ secrets.private-npm-auth-token }}
 
