@@ -42,9 +42,8 @@ on:
         default: false
         required: false
       preid-branches:
-        description: "Branches to be used for preid, as comma delimited to use for versioning e.g. 'main,master,develop'."
+        description: "Branches to be used for preid, as comma delimited to use for versioning e.g. 'main:rc,master:rc,develop:dev,vnext:next'. Uses version-builder-action default if not provided."
         type: string
-        default: main,master,develop
         required: false
       publish-command:
         description: "Command to run to publish packages. (defaults to: `npm run release` NOTE: NOT `npm publish`)"
