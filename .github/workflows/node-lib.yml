@@ -82,6 +82,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # required for accurate commit counting version-builder-action
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -116,7 +118,7 @@ jobs:
         if: inputs.publishable
         # todo: change to version
         # uses: sketch7/version-builder-action@v1
-        uses: sketch7/version-builder-action@feature/preid-map
+        uses: sketch7/version-builder-action@feature/tag
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
