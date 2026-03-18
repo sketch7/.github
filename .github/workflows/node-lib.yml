@@ -102,8 +102,8 @@ jobs:
         # uses: sketch7/npm-auth-action@v1
         uses: sketch7/npm-auth-action@copilot/add-npm-scope-registry-action
         with:
-          scope: ${{ inputs.private-npm-scope }}
-          registry-url: ${{ inputs.private-registry-url }}
+          scope: ${{ inputs.private-npm-scope }} # todo: auto resolve from package.json
+          registry: ${{ inputs.private-registry-url }}
           token: ${{ secrets.private-npm-auth-token }}
 
         # run: |
