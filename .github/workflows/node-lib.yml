@@ -23,10 +23,14 @@ on:
         required: false
         type: string
         default: "https://registry.npmjs.org"
+      private-registry-url:
+        description: NPM private registry to use.
+        required: false
+        type: string
       publishable:
-        description: Determines whether packages should be published
+        description: Determines whether packages should be published.
         type: boolean
-        default: ${{ contains(fromJSON('["develop", "master", "workflow"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
+        default: ${{ contains(fromJSON('["develop", "master", "main", "vnext", "workflow"]'), github.ref_name) || endsWith(github.ref_name, '.x')  }}
         required: false
       force-preid:
         description: "Forces preid versioning even if branch not satisfied."
@@ -39,27 +43,27 @@ on:
         default: main,master,develop
         required: false
       publish-command:
-        description: "Command to run to publish packages (defaults to: `npm run release` NOTE: NOT `npm publish`)"
+        description: "Command to run to publish packages. (defaults to: `npm run release` NOTE: NOT `npm publish`)"
         type: string
         default: npm run release
         required: false
       version-replace:
-        description: "Version to replace in the source code"
+        description: "Version to replace in the source code."
         type: string
         default: "0.0.0-PLACEHOLDER"
         required: false
       version-replace-glob:
-        description: "Glob pattern to search for version placeholder"
+        description: "Glob pattern to search for version placeholder."
         type: string
         default: "src/version.ts"
         required: false
     secrets:
-      npm-auth-token:
-        description: Auth token for NPM
+      private-npm-auth-token:
+        description: Auth token for NPM private registry (if applicable).
         required: false
     outputs:
       version:
-        description: "Version of the package"
+        description: "Version of the package."
         value: ${{ jobs.build.outputs.version }}
 
 jobs:
@@ -89,10 +93,13 @@ jobs:
           cache: ${{ inputs.package-manager }}
           # token: ${{ secrets.npm-auth-token }}
 
-      - name: Authenticate to NPM registry
-        # todo: only when custom registry and publishable
-        if: inputs.publishable
-        run: npm config set //${{ inputs.registry-url }}/:_authToken=${{ secrets.npm-auth-token }}
+      - name: Private NPM registry setup
+        if: inputs.private-registry-url != ''
+        run: |
+          npm config set @arcane:registry https://f.feedz.io/sketch7/arcane/npm/
+          npm config set //f.feedz.io/sketch7/arcane/npm/:_authToken ${{ secrets.private-npm-auth-token }}
+          npm config set always-auth true
+          # npm config set //${{ inputs.private-registry-url }}/:_authToken=${{ secrets.private-npm-auth-token }}
 
       - name: Print environment versions
         run: |
