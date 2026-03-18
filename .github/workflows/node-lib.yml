@@ -27,6 +27,10 @@ on:
         description: NPM private registry to use.
         required: false
         type: string
+      private-npm-scope:
+        description: NPM private scope to use.
+        required: false
+        type: string
       publishable:
         description: Determines whether packages should be published.
         type: boolean
@@ -93,13 +97,20 @@ jobs:
           cache: ${{ inputs.package-manager }}
           # token: ${{ secrets.npm-auth-token }}
 
-      - name: Private NPM registry setup
+      - name: Configure private registry npm auth
         if: inputs.private-registry-url != ''
-        run: |
-          npm config set @arcane:registry https://f.feedz.io/sketch7/arcane/npm/
-          npm config set //f.feedz.io/sketch7/arcane/npm/:_authToken ${{ secrets.private-npm-auth-token }}
-          # npm config set always-auth true
-          # npm config set //${{ inputs.private-registry-url }}/:_authToken=${{ secrets.private-npm-auth-token }}
+        # uses: sketch7/npm-auth-action@v1
+        uses: sketch7/npm-auth-action@copilot/add-npm-scope-registry-action
+        with:
+          scope: ${{ inputs.private-npm-scope }}
+          registry-url: ${{ inputs.private-registry-url }}
+          token: ${{ secrets.private-npm-auth-token }}
+
+        # run: |
+        #   npm config set @arcane:registry https://f.feedz.io/sketch7/arcane/npm/
+        #   npm config set //f.feedz.io/sketch7/arcane/npm/:_authToken ${{ secrets.private-npm-auth-token }}
+        #   # npm config set always-auth true
+        #   # npm config set //${{ inputs.private-registry-url }}/:_authToken=${{ secrets.private-npm-auth-token }}
 
       - name: Print environment versions
         run: |
