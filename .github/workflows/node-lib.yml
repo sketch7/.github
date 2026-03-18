@@ -95,16 +95,14 @@ jobs:
           node-version-file: ${{ inputs.node-version-file }}
           registry-url: ${{ inputs.registry-url }}
           cache: ${{ inputs.package-manager }}
-          # token: ${{ secrets.npm-auth-token }}
 
       - name: Configure private registry npm auth
         if: inputs.private-registry-url != ''
-        # uses: sketch7/npm-auth-action@v1
-        uses: sketch7/npm-auth-action@feature/resolve-scope
+        uses: sketch7/npm-auth-action@v1
         with:
-          scope: ${{ inputs.private-npm-scope }}
           registry: ${{ inputs.private-registry-url }}
           token: ${{ secrets.private-npm-auth-token }}
+          scope: ${{ inputs.private-npm-scope }}
 
       - name: Print environment versions
         run: |
