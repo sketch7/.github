@@ -100,17 +100,12 @@ jobs:
       - name: Configure private registry npm auth
         if: inputs.private-registry-url != ''
         # uses: sketch7/npm-auth-action@v1
-        uses: sketch7/npm-auth-action@copilot/add-npm-scope-registry-action
+        uses: sketch7/npm-auth-action@main
+        # uses: sketch7/npm-auth-action@feature/resolve-scope
         with:
           scope: ${{ inputs.private-npm-scope }} # todo: auto resolve from package.json
           registry: ${{ inputs.private-registry-url }}
           token: ${{ secrets.private-npm-auth-token }}
-
-        # run: |
-        #   npm config set @arcane:registry https://f.feedz.io/sketch7/arcane/npm/
-        #   npm config set //f.feedz.io/sketch7/arcane/npm/:_authToken ${{ secrets.private-npm-auth-token }}
-        #   # npm config set always-auth true
-        #   # npm config set //${{ inputs.private-registry-url }}/:_authToken=${{ secrets.private-npm-auth-token }}
 
       - name: Print environment versions
         run: |
