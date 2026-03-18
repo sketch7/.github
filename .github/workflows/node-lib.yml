@@ -116,9 +116,7 @@ jobs:
       - name: Build version
         id: version-builder
         if: inputs.publishable
-        # todo: change to version
-        # uses: sketch7/version-builder-action@v1
-        uses: sketch7/version-builder-action@feature/tag
+        uses: sketch7/version-builder-action@v2
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
