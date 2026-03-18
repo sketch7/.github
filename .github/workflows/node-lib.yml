@@ -120,7 +120,6 @@ jobs:
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
-          # preid-branches: "main,master,workflow"
           # preid: "rc"
 
       - name: Set version envs
