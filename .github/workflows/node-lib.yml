@@ -176,7 +176,7 @@ jobs:
         run: npm test --if-present
 
       - name: Publish
-        run: ${{ inputs.publish-command }} -- --tag ${{ steps.version-builder.outputs.preid || 'latest' }}
+        run: ${{ inputs.publish-command }} -- --tag ${{ steps.version-builder.outputs.tag }}
         if: inputs.publishable
 
       - name: Git tag
