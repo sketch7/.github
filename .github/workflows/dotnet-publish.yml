@@ -79,7 +79,7 @@ jobs:
 
             - name: Build version
               id: version-builder
-              uses: sketch7/version-builder-action@v3
+              uses: sketch7/version-builder-action@feature/ci-rel # @v3
               with:
                   preid-branches: ${{ inputs.preid-branches }}
                   force-preid: ${{ inputs.force-preid }}
