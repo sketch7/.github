@@ -51,12 +51,11 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 permissions:
-  contents: write # for git tag push
-  packages: write # if publishing to GitHub Packages
+  contents: write
+  packages: write
 
 jobs:
   build:
@@ -82,13 +81,34 @@ jobs:
           cache: true
           cache-dependency-path: "./Directory.Packages.props"
 
-      - name: Configure private NuGet registry auth
+      - name: Configure private NuGet registry auth (for restore)
         if: inputs.private-nuget-registry != ''
-        uses: actions/setup-dotnet@v5
-        with:
-          source-url: ${{ inputs.private-nuget-registry }}
-        env:
-          NUGET_AUTH_TOKEN: ${{ secrets.private-nuget-auth-token || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Adding private NuGet source: ${{ inputs.private-nuget-registry }}"
+          dotnet nuget remove source private || true
+          dotnet nuget add source \
+            --name private \
+            --username "${{ github.actor }}" \
+            --password "${{ secrets.private-nuget-auth-token || secrets.GITHUB_TOKEN }}" \
+            --store-password-in-clear-text \
+            "${{ inputs.private-nuget-registry }}"
+
+      - name: Configure default NuGet auth (if using GitHub Packages as source-url)
+        if: contains(inputs.source-url, 'nuget.pkg.github.com')
+        run: |
+          echo "Adding GitHub Packages source for restore: ${{ inputs.source-url }}"
+          dotnet nuget remove source github || true
+          dotnet nuget add source \
+            --name github \
+            --username "${{ github.actor }}" \
+            --password "${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}" \
+            --store-password-in-clear-text \
+            "${{ inputs.source-url }}"
+
+      - name: Print environment versions
+        run: |
+          echo dotnet input version':' ${{ inputs.dotnet-version }}
+          echo "::notice::dotnet cli version $(dotnet --version)"
 
       - name: Restore dependencies
         run: dotnet restore ${{ inputs.solution-file }}
@@ -100,7 +120,6 @@ jobs:
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
-          # preid: "rc"
 
       - name: Set version envs
         if: inputs.publishable
@@ -118,7 +137,7 @@ jobs:
         if: inputs.publishable
         run: dotnet pack ${{ inputs.solution-file }} -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
 
-      - name: "Upload Artifact"
+      - name: Upload Artifact
         uses: actions/upload-artifact@v6
         if: inputs.publishable
         with:
@@ -144,13 +163,26 @@ jobs:
           dotnet-version: ${{ inputs.dotnet-version }}
           source-url: ${{ inputs.source-url }}
 
+      - name: Configure private NuGet registry auth (for push)
+        if: inputs.private-nuget-registry != ''
+        run: |
+          dotnet nuget remove source private || true
+          dotnet nuget add source \
+            --name private \
+            --username "${{ github.actor }}" \
+            --password "${{ secrets.private-nuget-auth-token || secrets.GITHUB_TOKEN }}" \
+            --store-password-in-clear-text \
+            "${{ inputs.private-nuget-registry }}"
+
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v7
         with:
-          name: packages # optional else it will download all artifacts.
+          name: packages
 
       - name: Publish
-        run: dotnet nuget push "*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
+        run: dotnet nuget push "./artifacts/*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
 
       - name: Git tag
         run: |
