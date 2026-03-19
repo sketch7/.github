@@ -93,11 +93,11 @@ Creates the exact git tag (`v2.1.0`), force-updates the floating major tag (`v2`
 
 **Inputs**
 
-| Input           | Required | Default | Description         |
-| --------------- | -------- | ------- | ------------------- |
-| `version`       | ✅        | —       | e.g. `2.1.0`        |
-| `major-version` | ✅        | —       | e.g. `2`            |
-| `tag-prefix`    | —        | `v`     | Prefix for git tags |
+| Input           | Required | Default    | Description                                                                                                    |
+| --------------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `version`       | ✅        | —          | e.g. `2.1.0`                                                                                                   |
+| `major-version` | ✅        | —          | e.g. `2`                                                                                                       |
+| `tag-tmpl`      | —        | `v{major}` | Tag template; `{major}` is replaced with the major version number. e.g. `v{major}` → `v2`, `{major}.x` → `2.x` |
 
 ---
 

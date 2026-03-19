@@ -17,11 +17,11 @@ on:
                 description: "Major version number e.g. '2'. Used to determine the floating tag and --latest flag."
                 required: true
                 type: string
-            tag-prefix:
-                description: "Prefix for git tags e.g. 'v'."
+            tag-tmpl:
+                description: "Tag template for git tags. Use `{major}` as placeholder e.g. 'v{major}' → 'v2' or '{major}.x' → '2.x'."
                 required: false
                 type: string
-                default: "v"
+                default: "v{major}"
 
 permissions:
     contents: write
@@ -47,9 +47,10 @@ jobs:
                   script: |
                       const version = '${{ inputs.version }}'
                       const major = Number('${{ inputs.major-version }}')
-                      const prefix = '${{ inputs.tag-prefix }}'
+                      const tagTmpl = '${{ inputs.tag-tmpl }}'
+                      const prefix = tagTmpl.split('{major}')[0]
                       const exactTag = `${prefix}${version}`
-                      const floatingTag = `${prefix}${major}`
+                      const floatingTag = tagTmpl.replace('{major}', String(major))
 
                       // Determine whether this is the latest release by comparing with all existing tags
                       const { data: allTags } = await github.rest.repos.listTags({
