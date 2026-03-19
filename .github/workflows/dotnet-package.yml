@@ -27,6 +27,10 @@ on:
         type: string
         default: "https://api.nuget.org/v3/index.json"
         required: false
+      private-nuget-registry:
+        description: Private NuGet registry to use (e.g. 'https://nuget.pkg.github.com/sketch7/index.json').
+        required: false
+        type: string
       solution-file:
         description: Solution file to build (optional - if not specified, will auto-detect)
         type: string
@@ -34,6 +38,9 @@ on:
     secrets:
       nuget-auth-token:
         description: Auth token for Nuget
+        required: false
+      private-nuget-auth-token:
+        description: Auth token for private NuGet registry (if applicable).
         required: false
     outputs:
       version:
@@ -74,6 +81,14 @@ jobs:
           source-url: ${{ inputs.source-url }}
           cache: true
           cache-dependency-path: "./Directory.Packages.props"
+
+      - name: Configure private NuGet registry auth
+        if: inputs.private-nuget-registry != ''
+        uses: actions/setup-dotnet@v5
+        with:
+          source-url: ${{ inputs.private-nuget-registry }}
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.private-nuget-auth-token || secrets.GITHUB_TOKEN }}
 
       - name: Restore dependencies
         run: dotnet restore ${{ inputs.solution-file }}
