@@ -23,12 +23,12 @@ on:
         type: string
         required: false
       source-url:
-        description: Default nuget source url
+        description: Primary nuget source url (usually for pushing)
         type: string
         default: "https://api.nuget.org/v3/index.json"
         required: false
       private-nuget-registry:
-        description: Private NuGet registry to use (e.g. 'https://nuget.pkg.github.com/sketch7/index.json').
+        description: Private GitHub registry to use for restore
         required: false
         type: string
       solution-file:
@@ -88,6 +88,9 @@ jobs:
       - name: Restore dependencies
         # The NUGET_AUTH_TOKEN env variable set at the top handles authentication here
         run: dotnet restore ${{ inputs.solution-file }}
+        env:
+          # This maps the secret to the ENV variable name used in NuGet.config
+          GITHUB_TOKEN: ${{ secrets.private-nuget-auth-token || secrets.GITHUB_TOKEN }}
 
       - name: Build version
         id: version-builder
