@@ -79,11 +79,10 @@ After a pre-release publish on `main`, force-pushes the current HEAD to a `relea
 
 **Inputs**
 
-| Input           | Required | Description                                              |
-| --------------- | -------- | -------------------------------------------------------- |
-| `base-version`  | ✅        | e.g. `2.1.0`                                             |
-| `major-version` | ✅        | e.g. `2`                                                 |
-| `title`         | —        | PR title override; defaults to `Release v{base-version}` |
+| Input          | Required | Description                                              |
+| -------------- | -------- | -------------------------------------------------------- |
+| `base-version` | ✅        | e.g. `2.1.0`                                             |
+| `title`        | —        | PR title override; defaults to `Release v{base-version}` |
 
 ---
 
@@ -93,11 +92,10 @@ Creates the exact git tag (`v2.1.0`), force-updates the floating major tag (`v2`
 
 **Inputs**
 
-| Input           | Required | Default    | Description                                                                                                    |
-| --------------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `version`       | ✅        | —          | e.g. `2.1.0`                                                                                                   |
-| `major-version` | ✅        | —          | e.g. `2`                                                                                                       |
-| `tag-tmpl`      | —        | `v{major}` | Tag template; `{major}` is replaced with the major version number. e.g. `v{major}` → `v2`, `{major}.x` → `2.x` |
+| Input      | Required | Default    | Description                                                                                                    |
+| ---------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `version`  | ✅        | —          | e.g. `2.1.0`                                                                                                   |
+| `tag-tmpl` | —        | `v{major}` | Tag template; `{major}` is replaced with the major version number. e.g. `v{major}` → `v2`, `{major}.x` → `2.x` |
 
 ---
 
@@ -258,7 +256,6 @@ jobs:
     uses: sketch7/.github/.github/workflows/prepare-release-pr.yml@release-v1
     with:
       base-version: ${{ needs.publish.outputs.baseVersion }}
-      major-version: ${{ needs.publish.outputs.majorVersion }}
 
   release:
     name: Release
@@ -269,7 +266,6 @@ jobs:
     uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
     with:
       version: ${{ needs.publish.outputs.version }}
-      major-version: ${{ needs.publish.outputs.majorVersion }}
 ```
 
 ---
@@ -344,7 +340,6 @@ jobs:
     uses: sketch7/.github/.github/workflows/prepare-release-pr.yml@release-v1
     with:
       base-version: ${{ needs.publish.outputs.baseVersion }}
-      major-version: ${{ needs.publish.outputs.majorVersion }}
 
   release:
     name: Release
@@ -355,7 +350,6 @@ jobs:
     uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
     with:
       version: ${{ needs.publish.outputs.version }}
-      major-version: ${{ needs.publish.outputs.majorVersion }}
 ```
 
 ---

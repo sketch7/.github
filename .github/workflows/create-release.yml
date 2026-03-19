@@ -13,10 +13,6 @@ on:
                 description: "Stable version to release e.g. '2.1.0'."
                 required: true
                 type: string
-            major-version:
-                description: "Major version number e.g. '2'. Used to determine the floating tag and --latest flag."
-                required: true
-                type: string
             tag-tmpl:
                 description: "Tag template for git tags. Use `{major}` as placeholder e.g. 'v{major}' → 'v2' or '{major}.x' → '2.x'."
                 required: false
@@ -46,7 +42,7 @@ jobs:
               with:
                   script: |
                       const version = '${{ inputs.version }}'
-                      const major = Number('${{ inputs.major-version }}')
+                      const major = Number(version.split('.')[0])
                       const tagTmpl = '${{ inputs.tag-tmpl }}'
                       const prefix = tagTmpl.split('{major}')[0]
                       const exactTag = `${prefix}${version}`
