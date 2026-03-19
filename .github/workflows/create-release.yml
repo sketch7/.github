@@ -1,0 +1,89 @@
+# Tagged @release-v1 — language-agnostic, shared by node and dotnet workflows.
+name: create release
+
+# Generic, language-agnostic release workflow.
+# Creates an exact git tag (e.g. v2.1.0), updates the floating major tag (e.g. v2),
+# and creates a GitHub Release with auto-generated notes.
+# Called by both node and dotnet publish workflows after a stable publish.
+
+on:
+    workflow_call:
+        inputs:
+            version:
+                description: "Stable version to release e.g. '2.1.0'."
+                required: true
+                type: string
+            major-version:
+                description: "Major version number e.g. '2'. Used to determine the floating tag and --latest flag."
+                required: true
+                type: string
+            tag-prefix:
+                description: "Prefix for git tags e.g. 'v'."
+                required: false
+                type: string
+                default: "v"
+
+permissions:
+    contents: write
+
+jobs:
+    create-release:
+        name: Create Release
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Configure git user
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            - name: Tag, float and publish GitHub Release
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const version = '${{ inputs.version }}'
+                      const major = Number('${{ inputs.major-version }}')
+                      const prefix = '${{ inputs.tag-prefix }}'
+                      const exactTag = `${prefix}${version}`
+                      const floatingTag = `${prefix}${major}`
+
+                      // Determine whether this is the latest release by comparing with all existing tags
+                      const { data: allTags } = await github.rest.repos.listTags({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        per_page: 100,
+                      })
+                      const existingMajors = allTags
+                        .map(t => {
+                          const m = t.name.match(/^v?(\d+)[\.\-]/)
+                          return m ? Number(m[1]) : null
+                        })
+                        .filter(n => n !== null)
+                      const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
+                      const isLatest = major >= highestExistingMajor
+
+                      // Create the exact version tag
+                      await exec.exec('git', ['tag', exactTag])
+                      await exec.exec('git', ['push', 'origin', exactTag])
+                      core.notice(`Pushed tag: ${exactTag}`)
+
+                      // Create/update the floating major tag
+                      await exec.exec('git', ['tag', '-f', floatingTag])
+                      await exec.exec('git', ['push', 'origin', '-f', `refs/tags/${floatingTag}`])
+                      core.notice(`Updated floating tag: ${floatingTag}`)
+
+                      // Create the GitHub Release with auto-generated notes
+                      await github.rest.repos.createRelease({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        tag_name: exactTag,
+                        name: exactTag,
+                        generate_release_notes: true,
+                        make_latest: isLatest ? 'true' : 'false',
+                        prerelease: false,
+                      })
+                      core.notice(`Created GitHub Release: ${exactTag} (latest=${isLatest})`)

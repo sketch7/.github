@@ -1,0 +1,48 @@
+name: dotnet CI
+
+on:
+    workflow_call:
+        inputs:
+            dotnet-version:
+                description: ".NET SDK version to use e.g. '10.0.x'."
+                required: false
+                type: string
+                default: "10.0.x"
+
+env:
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+    DOTNET_NOLOGO: true
+    DOTNET_CLI_TELEMETRY_OPTOUT: true
+    NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+permissions:
+    contents: read
+
+jobs:
+    ci:
+        name: CI
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: ${{ inputs.dotnet-version }}
+                  cache: true
+                  cache-dependency-path: "./Directory.Packages.props"
+
+            - name: Print environment versions
+              run: |
+                  DOTNET_V=$(dotnet --version)
+                  echo "::notice::dotnet version: $DOTNET_V"
+
+            - name: Restore dependencies
+              run: dotnet restore
+
+            - name: Build
+              run: dotnet build --no-restore
+
+            - name: Test
+              run: dotnet test --no-build
