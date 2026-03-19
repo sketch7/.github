@@ -23,12 +23,12 @@ on:
         required: false
         type: string
         default: "https://registry.npmjs.org"
-      private-registry-url:
+      private-npm-registry:
         description: NPM private registry to use.
         required: false
         type: string
       private-npm-scope:
-        description: NPM private scope to use. When omitted, the scope is auto-resolved from the `name` field in `package.json` and `private-registry-url` is used.
+        description: NPM private scope to use. When omitted, the scope is auto-resolved from the `name` field in `package.json` and `private-npm-registry` is used.
         required: false
         type: string
       publishable:
@@ -98,10 +98,10 @@ jobs:
           cache: ${{ inputs.package-manager }}
 
       - name: Configure private registry npm auth
-        if: inputs.private-registry-url != ''
+        if: inputs.private-npm-registry != ''
         uses: sketch7/npm-auth-action@v1
         with:
-          registry: ${{ inputs.private-registry-url }}
+          registry: ${{ inputs.private-npm-registry }}
           token: ${{ secrets.private-npm-auth-token }}
           scope: ${{ inputs.private-npm-scope }}
 
