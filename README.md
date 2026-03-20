@@ -4,13 +4,13 @@ Reusable GitHub Actions workflows for Node and .NET packages. Provides separate,
 
 ## Tags
 
-| Tag              | Workflows                                                          |
-| ---------------- | ------------------------------------------------------------------ |
-| `node-libs-v1`   | `node-lib.yml` (deprecated — use v2 split workflows)               |
-| `node-libs-v2`   | `node-ci.yml`, `node-publish.yml`                                  |
-| `dotnet-libs-v1` | `dotnet-package.yml` (deprecated — use v2 split workflows)         |
-| `dotnet-libs-v2` | `dotnet-ci.yml`, `dotnet-publish.yml`                              |
-| `release-v1`     | `prepare-release-pr.yml`, `create-release.yml` (language-agnostic) |
+| Tag              | Workflows                                                       |
+| ---------------- | --------------------------------------------------------------- |
+| `node-libs-v1`   | `node-lib.yml` (deprecated — use v2 split workflows)            |
+| `node-libs-v2`   | `node-ci.yml`, `node-publish.yml`                               |
+| `dotnet-libs-v1` | `dotnet-package.yml` (deprecated — use v2 split workflows)      |
+| `dotnet-libs-v2` | `dotnet-ci.yml`, `dotnet-publish.yml`                           |
+| `release-v1`     | `prepare-release.yml`, `create-release.yml` (language-agnostic) |
 
 ```bash
 # move tag (shorthand)
@@ -73,7 +73,7 @@ Resolves the version via `version-builder-action`, bumps `package.json`, install
 
 ---
 
-### `prepare-release-pr.yml` · `@release-v1`
+### `prepare-release.yml` · `@release-v1`
 
 After a pre-release publish on `main`, force-pushes the current HEAD to a `release/v{baseVersion}` branch and creates (or updates) a PR targeting the `v{major}` stable branch. Language-agnostic.
 
@@ -140,7 +140,7 @@ flowchart TD
 
     CD_publish["CD: publish job<br/>node-publish.yml<br/>→ publishes 2.1.0-rc.5 --tag rc"]
     CD_publish -->|"ref_name == 'main'"| PrepareRelease
-    PrepareRelease["CD: prepare-release job<br/>prepare-release-pr.yml<br/>→ creates/updates PR<br/>release/v2.1.0 → v2"]
+    PrepareRelease["CD: prepare-release job<br/>prepare-release.yml<br/>→ creates/updates PR<br/>release/v2.1.0 → v2"]
 
     RELEASE_PR["Release PR merged<br/>(release/v2.1.0 → v2)"] -->|on: push to v2| CI2
     RELEASE_PR --> CD_stable
@@ -253,7 +253,7 @@ jobs:
       needs.publish.result == 'success' &&
       github.event_name == 'push' &&
       github.ref_name == 'main'
-    uses: sketch7/.github/.github/workflows/prepare-release-pr.yml@release-v1
+    uses: sketch7/.github/.github/workflows/prepare-release.yml@release-v1
     with:
       base-version: ${{ needs.publish.outputs.baseVersion }}
 
@@ -337,7 +337,7 @@ jobs:
       needs.publish.result == 'success' &&
       github.event_name == 'push' &&
       github.ref_name == 'main'
-    uses: sketch7/.github/.github/workflows/prepare-release-pr.yml@release-v1
+    uses: sketch7/.github/.github/workflows/prepare-release.yml@release-v1
     with:
       base-version: ${{ needs.publish.outputs.baseVersion }}
 
@@ -356,7 +356,7 @@ jobs:
 
 ## Deprecated Workflows
 
-| Workflow                               | Replaced by                                                                                                          |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `node-lib.yml` `@node-libs-v1`         | `node-ci.yml` + `node-publish.yml` + `prepare-release-pr.yml` + `create-release.yml` `@node-libs-v2` / `@release-v1` |
-| `dotnet-package.yml` `@dotnet-libs-v1` | `dotnet-ci.yml` + `dotnet-publish.yml` + `create-release.yml` `@dotnet-libs-v2` / `@release-v1`                      |
+| Workflow                               | Replaced by                                                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `node-lib.yml` `@node-libs-v1`         | `node-ci.yml` + `node-publish.yml` + `prepare-release.yml` + `create-release.yml` `@node-libs-v2` / `@release-v1` |
+| `dotnet-package.yml` `@dotnet-libs-v1` | `dotnet-ci.yml` + `dotnet-publish.yml` + `create-release.yml` `@dotnet-libs-v2` / `@release-v1`                   |
