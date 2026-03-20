@@ -2,71 +2,71 @@
 name: prepare release PR
 
 on:
-    workflow_call:
-        inputs:
-            base-version:
-                description: "Full base version without preid e.g. '2.1.0'."
-                required: true
-                type: string
-            title:
-                description: "PR title override. Defaults to 'Release v{base-version}'."
-                required: false
-                type: string
+  workflow_call:
+    inputs:
+      base-version:
+        description: "Full base version without preid e.g. '2.1.0'."
+        required: true
+        type: string
+      title:
+        description: "PR title override. Defaults to 'Release v{base-version}'."
+        required: false
+        type: string
 
 permissions:
-    contents: write
-    pull-requests: write
+  contents: write
+  pull-requests: write
 
 jobs:
-    prepare-release-pr:
-        name: Prepare Release PR
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
+  prepare-release-pr:
+    name: Prepare Release PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-            - name: Create or update release PR
-              uses: actions/github-script@v8
-              with:
-                  script: |
-                      const baseVersion = '${{ inputs.base-version }}'
-                      const major = baseVersion.split('.')[0]
-                      const releaseBranch = `release/v${baseVersion}`
-                      const targetBranch = `v${major}`
-                      const prTitle = `${{ inputs.title }}` || `Release v${baseVersion}`
+      - name: Create or update release PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const baseVersion = '${{ inputs.base-version }}'
+            const major = baseVersion.split('.')[0]
+            const releaseBranch = `release/v${baseVersion}`
+            const targetBranch = `v${major}`
+            const prTitle = `${{ inputs.title }}` || `Release v${baseVersion}`
 
-                      // Force-push current HEAD to the release branch
-                      await exec.exec('git', ['push', 'origin', `HEAD:refs/heads/${releaseBranch}`, '--force'])
-                      core.notice(`Pushed HEAD to branch: ${releaseBranch}`)
+            // Force-push current HEAD to the release branch
+            await exec.exec('git', ['push', 'origin', `HEAD:refs/heads/${releaseBranch}`, '--force'])
+            core.notice(`Pushed HEAD to branch: ${releaseBranch}`)
 
-                      // Check if an open PR already exists for this release branch -> target
-                      const { data: existingPRs } = await github.rest.pulls.list({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        state: 'open',
-                        head: `${context.repo.owner}:${releaseBranch}`,
-                        base: targetBranch,
-                      })
+            // Check if an open PR already exists for this release branch -> target
+            const { data: existingPRs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${releaseBranch}`,
+              base: targetBranch,
+            })
 
-                      if (existingPRs.length === 0) {
-                        const { data: pr } = await github.rest.pulls.create({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          title: prTitle,
-                          head: releaseBranch,
-                          base: targetBranch,
-                          body: `Automated release PR for \`v${baseVersion}\`.\n\nMerge this PR to publish the stable release and create the GitHub Release.`,
-                        })
-                        core.notice(`Created release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
-                      } else {
-                        const pr = existingPRs[0]
-                        await github.rest.pulls.update({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          pull_number: pr.number,
-                          title: prTitle,
-                        })
-                        core.notice(`Updated release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
-                      }
+            if (existingPRs.length === 0) {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: prTitle,
+                head: releaseBranch,
+                base: targetBranch,
+                body: `Automated release PR for \`v${baseVersion}\`.\n\nMerge this PR to publish the stable release and create the GitHub Release.`,
+              })
+              core.notice(`Created release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
+            } else {
+              const pr = existingPRs[0]
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                title: prTitle,
+              })
+              core.notice(`Updated release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
+            }

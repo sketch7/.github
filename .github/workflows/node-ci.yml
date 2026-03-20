@@ -1,79 +1,79 @@
 name: node CI
 
 on:
-    workflow_call:
-        inputs:
-            node-version-file:
-                description: "File containing the Node version spec e.g. package.json, .nvmrc."
-                required: false
-                type: string
-                default: "package.json"
-            package-manager:
-                description: "Package manager to use: 'npm' or 'pnpm'."
-                required: false
-                type: string
-                default: npm
-            private-npm-registry:
-                description: "NPM private registry URL. When set, configures auth for that registry."
-                required: false
-                type: string
-            private-npm-scope:
-                description: "NPM private scope. Auto-resolved from package.json when omitted."
-                required: false
-                type: string
-        secrets:
-            private-npm-auth-token:
-                description: "Auth token for private NPM registry."
-                required: false
+  workflow_call:
+    inputs:
+      node-version-file:
+        description: "File containing the Node version spec e.g. package.json, .nvmrc."
+        required: false
+        type: string
+        default: "package.json"
+      package-manager:
+        description: "Package manager to use: 'npm' or 'pnpm'."
+        required: false
+        type: string
+        default: npm
+      private-npm-registry:
+        description: "NPM private registry URL. When set, configures auth for that registry."
+        required: false
+        type: string
+      private-npm-scope:
+        description: "NPM private scope. Auto-resolved from package.json when omitted."
+        required: false
+        type: string
+    secrets:
+      private-npm-auth-token:
+        description: "Auth token for private NPM registry."
+        required: false
 
 permissions:
-    contents: read
+  contents: read
 
 jobs:
-    ci:
-        name: CI
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v6
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
-              if: inputs.package-manager == 'pnpm'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        if: inputs.package-manager == 'pnpm'
 
-            - name: Setup Node
-              uses: actions/setup-node@v6
-              with:
-                  node-version-file: ${{ inputs.node-version-file }}
-                  cache: ${{ inputs.package-manager }}
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: ${{ inputs.package-manager }}
 
-            - name: Configure private registry npm auth
-              if: inputs.private-npm-registry != ''
-              uses: sketch7/npm-auth-action@v1
-              with:
-                  registry: ${{ inputs.private-npm-registry }}
-                  token: ${{ secrets.private-npm-auth-token }}
-                  scope: ${{ inputs.private-npm-scope }}
+      - name: Configure private registry npm auth
+        if: inputs.private-npm-registry != ''
+        uses: sketch7/npm-auth-action@v1
+        with:
+          registry: ${{ inputs.private-npm-registry }}
+          token: ${{ secrets.private-npm-auth-token }}
+          scope: ${{ inputs.private-npm-scope }}
 
-            - name: Print environment versions
-              run: |
-                  NODE_V=$(node --version)
-                  NPM_V=$(npm -v)
-                  echo "node version: $NODE_V / npm version: $NPM_V"
+      - name: Print environment versions
+        run: |
+          NODE_V=$(node --version)
+          NPM_V=$(npm -v)
+          echo "node version: $NODE_V / npm version: $NPM_V"
 
-            - name: Restore dependencies
-              run: |
-                  if [[ "${{ inputs.package-manager }}" == "pnpm" ]]; then
-                    pnpm i
-                  else
-                    npm ci
-                  fi
+      - name: Restore dependencies
+        run: |
+          if [[ "${{ inputs.package-manager }}" == "pnpm" ]]; then
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
 
-            - name: Lint
-              run: npm run lint --if-present
+      - name: Lint
+        run: npm run lint --if-present
 
-            - name: Build
-              run: npm run build
+      - name: Build
+        run: npm run build
 
-            - name: Test
-              run: npm test --if-present
+      - name: Test
+        run: npm test --if-present

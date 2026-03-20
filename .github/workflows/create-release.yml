@@ -7,80 +7,80 @@ name: create release
 # Called by both node and dotnet publish workflows after a stable publish.
 
 on:
-    workflow_call:
-        inputs:
-            version:
-                description: "Stable version to release e.g. '2.1.0'."
-                required: true
-                type: string
-            tag-tmpl:
-                description: "Tag template for git tags. Use `{major}` as placeholder e.g. 'v{major}' → 'v2' or '{major}.x' → '2.x'."
-                required: false
-                type: string
-                default: "v{major}"
+  workflow_call:
+    inputs:
+      version:
+        description: "Stable version to release e.g. '2.1.0'."
+        required: true
+        type: string
+      tag-tmpl:
+        description: "Tag template for git tags. Use `{major}` as placeholder e.g. 'v{major}' → 'v2' or '{major}.x' → '2.x'."
+        required: false
+        type: string
+        default: "v{major}"
 
 permissions:
-    contents: write
+  contents: write
 
 jobs:
-    create-release:
-        name: Create Release
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-            - name: Configure git user
-              run: |
-                  git config user.name "github-actions[bot]"
-                  git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            - name: Tag, float and publish GitHub Release
-              uses: actions/github-script@v8
-              with:
-                  script: |
-                      const version = '${{ inputs.version }}'
-                      const major = Number(version.split('.')[0])
-                      const tagTmpl = '${{ inputs.tag-tmpl }}'
-                      const prefix = tagTmpl.split('{major}')[0]
-                      const exactTag = `${prefix}${version}`
-                      const floatingTag = tagTmpl.replace('{major}', String(major))
+      - name: Tag, float and publish GitHub Release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const version = '${{ inputs.version }}'
+            const major = Number(version.split('.')[0])
+            const tagTmpl = '${{ inputs.tag-tmpl }}'
+            const prefix = tagTmpl.split('{major}')[0]
+            const exactTag = `${prefix}${version}`
+            const floatingTag = tagTmpl.replace('{major}', String(major))
 
-                      // Determine whether this is the latest release by comparing with all existing tags
-                      const { data: allTags } = await github.rest.repos.listTags({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        per_page: 100,
-                      })
-                      const existingMajors = allTags
-                        .map(t => {
-                          const m = t.name.match(/^v?(\d+)[\.\-]/)
-                          return m ? Number(m[1]) : null
-                        })
-                        .filter(n => n !== null)
-                      const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
-                      const isLatest = major >= highestExistingMajor
+            // Determine whether this is the latest release by comparing with all existing tags
+            const { data: allTags } = await github.rest.repos.listTags({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            })
+            const existingMajors = allTags
+              .map(t => {
+                const m = t.name.match(/^v?(\d+)[\.\-]/)
+                return m ? Number(m[1]) : null
+              })
+              .filter(n => n !== null)
+            const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
+            const isLatest = major >= highestExistingMajor
 
-                      // Create the exact version tag
-                      await exec.exec('git', ['tag', exactTag])
-                      await exec.exec('git', ['push', 'origin', exactTag])
-                      core.notice(`Pushed tag: ${exactTag}`)
+            // Create the exact version tag
+            await exec.exec('git', ['tag', exactTag])
+            await exec.exec('git', ['push', 'origin', exactTag])
+            core.notice(`Pushed tag: ${exactTag}`)
 
-                      // Create/update the floating major tag
-                      await exec.exec('git', ['tag', '-f', floatingTag])
-                      await exec.exec('git', ['push', 'origin', '-f', `refs/tags/${floatingTag}`])
-                      core.notice(`Updated floating tag: ${floatingTag}`)
+            // Create/update the floating major tag
+            await exec.exec('git', ['tag', '-f', floatingTag])
+            await exec.exec('git', ['push', 'origin', '-f', `refs/tags/${floatingTag}`])
+            core.notice(`Updated floating tag: ${floatingTag}`)
 
-                      // Create the GitHub Release with auto-generated notes
-                      await github.rest.repos.createRelease({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        tag_name: exactTag,
-                        name: exactTag,
-                        generate_release_notes: true,
-                        make_latest: isLatest ? 'true' : 'false',
-                        prerelease: false,
-                      })
-                      core.notice(`Created GitHub Release: ${exactTag} (latest=${isLatest})`)
+            // Create the GitHub Release with auto-generated notes
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: exactTag,
+              name: exactTag,
+              generate_release_notes: true,
+              make_latest: isLatest ? 'true' : 'false',
+              prerelease: false,
+            })
+            core.notice(`Created GitHub Release: ${exactTag} (latest=${isLatest})`)
