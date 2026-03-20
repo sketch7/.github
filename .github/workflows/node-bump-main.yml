@@ -44,7 +44,7 @@ jobs:
           BRANCH="chore/bump-v${NEW_VERSION}"
           git checkout -b "$BRANCH"
           git add package.json
-          git commit -m "chore: bump version to ${NEW_VERSION}"
+          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
           git push origin "$BRANCH"
 
       - name: Create bump PR
