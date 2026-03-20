@@ -41,6 +41,32 @@ jobs:
             await exec.exec('git', ['push', 'origin', `HEAD:refs/heads/${releaseBranch}`, '--force'])
             core.notice(`Pushed HEAD to branch: ${releaseBranch}`)
 
+            // Ensure the target branch (e.g. v1) exists; create it if not
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: targetBranch,
+              })
+              core.notice(`Target branch already exists: ${targetBranch}`)
+            } catch (err) {
+              if (err.status !== 404) throw err
+              // Resolve the SHA of the release branch we just pushed
+              const { data: refData } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${releaseBranch}`,
+              })
+              const sha = refData.object.sha
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/heads/${targetBranch}`,
+                sha,
+              })
+              core.notice(`Created target branch: ${targetBranch} (sha: ${sha})`)
+            }
+
             // Check if an open PR already exists for this release branch -> target
             const { data: existingPRs } = await github.rest.pulls.list({
               owner: context.repo.owner,
