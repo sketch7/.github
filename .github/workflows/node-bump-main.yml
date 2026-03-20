@@ -11,6 +11,11 @@ on:
         description: "The stable version that was just released e.g. '1.0.0'. Used to derive the bumped version."
         required: true
         type: string
+      default-branch:
+        description: "Branch to bump the version on e.g. 'main', 'master'."
+        required: false
+        type: string
+        default: main
 
 permissions:
   contents: write
@@ -18,13 +23,13 @@ permissions:
 
 jobs:
   bump-main:
-    name: Bump Main
+    name: Bump main
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
+      - name: Checkout ${{ inputs.default-branch }}
         uses: actions/checkout@v6
         with:
-          ref: main
+          ref: ${{ inputs.default-branch }}
           fetch-depth: 0
 
       - name: Configure git user
@@ -60,7 +65,7 @@ jobs:
               repo: context.repo.repo,
               state: 'open',
               head: `${context.repo.owner}:${branch}`,
-              base: 'main',
+              base: '${{ inputs.default-branch }}',
             })
 
             if (existingPrs.length === 0) {
@@ -69,7 +74,7 @@ jobs:
                 repo: context.repo.repo,
                 title,
                 head: branch,
-                base: 'main',
+                base: '${{ inputs.default-branch }}',
                 body: `Automated version bump after releasing \`v${{ inputs.released-version }}\`.\n\nBumps \`package.json\` version to \`${newVersion}\` (next minor).`,
               })
               core.notice(`Created bump PR #${pr.number}: ${title}`)
