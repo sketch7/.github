@@ -122,7 +122,7 @@ jobs:
       - name: Build version
         id: version-builder
         if: inputs.publishable
-        uses: sketch7/version-builder-action@v2
+        uses: sketch7/version-builder-action@v3
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
