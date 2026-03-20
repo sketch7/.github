@@ -37,7 +37,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Tag, float and publish GitHub Release
+      - name: Resolve release metadata
+        id: meta
         uses: actions/github-script@v8
         with:
           script: |
@@ -48,7 +49,6 @@ jobs:
             const exactTag = `${prefix}${version}`
             const floatingTag = tagTmpl.replace('{major}', String(major))
 
-            // Determine whether this is the latest release by comparing with all existing tags
             const { data: allTags } = await github.rest.repos.listTags({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -63,17 +63,28 @@ jobs:
             const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
             const isLatest = major >= highestExistingMajor
 
-            // Create the exact version tag
-            await exec.exec('git', ['tag', exactTag])
-            await exec.exec('git', ['push', 'origin', exactTag])
-            core.notice(`Pushed tag: ${exactTag}`)
+            core.setOutput('exact-tag', exactTag)
+            core.setOutput('floating-tag', floatingTag)
+            core.setOutput('is-latest', isLatest)
+            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, isLatest: ${isLatest}`)
 
-            // Create/update the floating major tag
-            await exec.exec('git', ['tag', '-f', floatingTag])
-            await exec.exec('git', ['push', 'origin', '-f', `refs/tags/${floatingTag}`])
-            core.notice(`Updated floating tag: ${floatingTag}`)
+      - name: Push version tag
+        run: |
+          git tag ${{ steps.meta.outputs.exact-tag }}
+          git push origin ${{ steps.meta.outputs.exact-tag }}
 
-            // Create the GitHub Release with auto-generated notes
+      - name: Update floating tag
+        run: |
+          git tag -f ${{ steps.meta.outputs.floating-tag }}
+          git push origin -f refs/tags/${{ steps.meta.outputs.floating-tag }}
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const exactTag = '${{ steps.meta.outputs.exact-tag }}'
+            const isLatest = '${{ steps.meta.outputs.is-latest }}' === 'true'
+
             await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
