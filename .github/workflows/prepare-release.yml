@@ -77,7 +77,7 @@ jobs:
             const targetBranch = '${{ steps.ensure-target-branch.outputs.target-branch }}'
             const prTitle = `${{ inputs.title }}` || `Release v${baseVersion}`
 
-            const { data: existingPRs } = await github.rest.pulls.list({
+            const { data: existingPrs } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
@@ -85,7 +85,7 @@ jobs:
               base: targetBranch,
             })
 
-            if (existingPRs.length === 0) {
+            if (existingPrs.length === 0) {
               const { data: pr } = await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -96,7 +96,7 @@ jobs:
               })
               core.notice(`Created release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
             } else {
-              const pr = existingPRs[0]
+              const pr = existingPrs[0]
               await github.rest.pulls.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
