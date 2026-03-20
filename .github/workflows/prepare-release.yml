@@ -1,5 +1,5 @@
 # Tagged @release-v1 — language-agnostic, shared by node and dotnet workflows.
-name: prepare release PR
+name: prepare release
 
 on:
   workflow_call:
@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   prepare-release:
-    name: Prepare Release PR
+    name: Prepare Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -196,7 +196,7 @@ permissions:
 
 jobs:
   ci:
-    name: CI
+    name: node CI
     uses: sketch7/.github/.github/workflows/node-ci.yml@node-libs-v2
     with:
       package-manager: pnpm
@@ -247,7 +247,7 @@ jobs:
       private-npm-auth-token: ${{ secrets.MY_NPM_TOKEN }}
 
   prepare-release:
-    name: Prepare Release PR
+    name: Prepare Release
     needs: publish
     if: |
       needs.publish.result == 'success' &&
@@ -289,7 +289,7 @@ permissions:
 
 jobs:
   ci:
-    name: CI
+    name: dotnet CI
     uses: sketch7/.github/.github/workflows/dotnet-ci.yml@dotnet-libs-v2
 ```
 
@@ -331,7 +331,7 @@ jobs:
       nuget-auth-token: ${{ secrets.NUGET_TOKEN }}
 
   prepare-release:
-    name: Prepare Release PR
+    name: Prepare Release
     needs: publish
     if: |
       needs.publish.result == 'success' &&
