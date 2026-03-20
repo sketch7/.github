@@ -79,19 +79,9 @@ jobs:
           git push origin -f refs/tags/${{ steps.meta.outputs.floating-tag }}
 
       - name: Create GitHub Release
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const exactTag = '${{ steps.meta.outputs.exact-tag }}'
-            const isLatest = '${{ steps.meta.outputs.is-latest }}' === 'true'
-
-            await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: exactTag,
-              name: exactTag,
-              generate_release_notes: true,
-              make_latest: isLatest ? 'true' : 'false',
-              prerelease: false,
-            })
-            core.notice(`Created GitHub Release: ${exactTag} (latest=${isLatest})`)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST_FLAG="--no-latest"
+          [[ "${{ steps.meta.outputs.is-latest }}" == "true" ]] && LATEST_FLAG="--latest"
+          gh release create "${{ steps.meta.outputs.exact-tag }}" --generate-notes $LATEST_FLAG
