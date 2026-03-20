@@ -184,13 +184,13 @@ flowchart TD
 
     CreateRelease2["CD: release job<br/>create-release.yml<br/>→ tag v1.5.3<br/>→ float tag v1<br/>→ GitHub Release (non-latest) ✨<br/>is-latest == false → no bump"]
 
-    style PrepareRelease fill:#dbeafe,stroke:#3b82f6
-    style CreateRelease fill:#dcfce7,stroke:#16a34a
-    style CreateRelease2 fill:#dcfce7,stroke:#16a34a
-    style BumpMain fill:#ede9fe,stroke:#7c3aed
-    style CD_publish fill:#fef9c3,stroke:#ca8a04
-    style CD_stable fill:#fef9c3,stroke:#ca8a04
-    style CD_lts fill:#fef9c3,stroke:#ca8a04
+    style PrepareRelease fill:#bfdbfe,stroke:#60a5fa,color:#1e3a5f
+    style CreateRelease fill:#bbf7d0,stroke:#4ade80,color:#14532d
+    style CreateRelease2 fill:#bbf7d0,stroke:#4ade80,color:#14532d
+    style BumpMain fill:#ddd6fe,stroke:#a78bfa,color:#2e1065
+    style CD_publish fill:#fef08a,stroke:#facc15,color:#713f12
+    style CD_stable fill:#fef08a,stroke:#facc15,color:#713f12
+    style CD_lts fill:#fef08a,stroke:#facc15,color:#713f12
 ```
 
 ---
