@@ -50,19 +50,47 @@ jobs:
               core.notice(`Target branch already exists: ${targetBranch}`)
             } catch (err) {
               if (err.status !== 404) throw err
+
+              // Get the current SHA of the release branch (main HEAD at this point)
               const { data: refData } = await github.rest.git.getRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `heads/${releaseBranch}`,
               })
-              const sha = refData.object.sha
+              const originalSha = refData.object.sha
+
+              // Fetch the tree SHA from the original commit so we can create an empty commit.
+              // The empty commit advances the release branch by one commit so that it is ahead
+              // of the newly-created target branch — GitHub requires head to be ahead of base
+              // to allow creating a PR. Without this the PR API returns 422 "No commits between".
+              const { data: commitData } = await github.rest.git.getCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: originalSha,
+              })
+              const { data: emptyCommit } = await github.rest.git.createCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                message: `chore: prepare release branch v${{ inputs.base-version }}`,
+                tree: commitData.tree.sha,
+                parents: [originalSha],
+              })
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${releaseBranch}`,
+                sha: emptyCommit.sha,
+              })
+
+              // Create the target branch from the original SHA (before the empty commit)
+              // so that the release branch is exactly 1 commit ahead → PR can be opened
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `refs/heads/${targetBranch}`,
-                sha,
+                sha: originalSha,
               })
-              core.notice(`Created target branch: ${targetBranch} (sha: ${sha})`)
+              core.notice(`Created target branch: ${targetBranch} (sha: ${originalSha}), advanced ${releaseBranch} to ${emptyCommit.sha}`)
               created = true
             }
             core.setOutput('created', created)
