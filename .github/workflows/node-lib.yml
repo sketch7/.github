@@ -1,3 +1,9 @@
+# DEPRECATED: Use the split workflows tagged @node-libs-v2 instead:
+#   - node-ci.yml          — lint, build, test
+#   - node-publish.yml     — version, install, build, publish
+#   - prepare-release.yml — create/update release PR on push to main
+#   - create-release.yml   — git tag, floating tag, GitHub Release
+# This file is kept for consumers still on @node-libs-v1.
 name: node library build/publish
 
 on:
@@ -116,7 +122,7 @@ jobs:
       - name: Build version
         id: version-builder
         if: inputs.publishable
-        uses: sketch7/version-builder-action@v2
+        uses: sketch7/version-builder-action@v3
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}

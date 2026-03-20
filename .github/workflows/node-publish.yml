@@ -1,0 +1,165 @@
+name: node publish
+
+on:
+  workflow_call:
+    inputs:
+      node-version-file:
+        description: "File containing the Node version spec e.g. package.json, .nvmrc."
+        required: false
+        type: string
+        default: "package.json"
+      package-manager:
+        description: "Package manager to use: 'npm' or 'pnpm'."
+        required: false
+        type: string
+        default: npm
+      registry-url:
+        description: "NPM registry to publish to."
+        required: false
+        type: string
+        default: "https://registry.npmjs.org"
+      private-npm-registry:
+        description: "NPM private registry URL. When set, configures auth for that registry."
+        required: false
+        type: string
+      private-npm-scope:
+        description: "NPM private scope. Auto-resolved from package.json when omitted."
+        required: false
+        type: string
+      preid-branches:
+        description: "Branches to use for preid versioning e.g. 'main:rc,master:rc,develop:dev,vnext:next'. Uses version-builder-action default when omitted."
+        required: false
+        type: string
+      force-preid:
+        description: "Forces preid versioning even if branch condition is not satisfied."
+        required: false
+        type: boolean
+        default: false
+      publish-command:
+        description: "Command to run to publish packages."
+        required: false
+        type: string
+        default: "npm run release"
+      version-replace:
+        description: "Version placeholder to replace in source files."
+        required: false
+        type: string
+        default: "0.0.0-PLACEHOLDER"
+      version-replace-glob:
+        description: "Glob pattern for files containing the version placeholder. Set to empty string to skip."
+        required: false
+        type: string
+        default: "src/version.ts"
+    secrets:
+      private-npm-auth-token:
+        description: "Auth token for private NPM registry."
+        required: false
+    outputs:
+      version:
+        description: "Full published version e.g. '1.5.6-rc.12'."
+        value: ${{ jobs.publish.outputs.version }}
+      baseVersion:
+        description: "Base version without preid e.g. '1.5.6'."
+        value: ${{ jobs.publish.outputs.baseVersion }}
+      isPrerelease:
+        description: "Whether the published version is a pre-release."
+        value: ${{ jobs.publish.outputs.isPrerelease }}
+      tag:
+        description: "NPM dist-tag used e.g. 'latest', 'rc', 'v1-lts'."
+        value: ${{ jobs.publish.outputs.tag }}
+      majorVersion:
+        description: "Major version number e.g. '1'."
+        value: ${{ jobs.publish.outputs.majorVersion }}
+      minorVersion:
+        description: "Minor version number e.g. '5'."
+        value: ${{ jobs.publish.outputs.minorVersion }}
+      patchVersion:
+        description: "Patch version number e.g. '6'."
+        value: ${{ jobs.publish.outputs.patchVersion }}
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # required for accurate commit counting in version-builder-action
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        if: inputs.package-manager == 'pnpm'
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          registry-url: ${{ inputs.registry-url }}
+          cache: ${{ inputs.package-manager }}
+
+      - name: Configure private registry npm auth
+        if: inputs.private-npm-registry != ''
+        uses: sketch7/npm-auth-action@v1
+        with:
+          registry: ${{ inputs.private-npm-registry }}
+          token: ${{ secrets.private-npm-auth-token }}
+          scope: ${{ inputs.private-npm-scope }}
+
+      - name: Print environment versions
+        run: |
+          NODE_V=$(node --version)
+          NPM_V=$(npm -v)
+          echo "::notice::node version: $NODE_V / npm version: $NPM_V"
+
+      - name: Build version
+        id: version-builder
+        uses: sketch7/version-builder-action@v3
+        with:
+          preid-branches: ${{ inputs.preid-branches }}
+          force-preid: ${{ inputs.force-preid }}
+
+      - name: Set version env
+        run: echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
+
+      - name: Set package version
+        run: npm version $VERSION --allow-same-version=true --git-tag-version=false
+
+      - name: Restore dependencies
+        run: |
+          if [[ "${{ inputs.package-manager }}" == "pnpm" ]]; then
+            pnpm i
+          else
+            npm ci
+          fi
+
+      - name: Replace version placeholder
+        if: inputs.version-replace-glob != ''
+        uses: richardrigutins/replace-in-files@v2
+        with:
+          files: ${{ inputs.version-replace-glob }}
+          search-text: ${{ inputs.version-replace }}
+          replacement-text: ${{ env.VERSION }}
+
+      - name: Pre-release build
+        run: npm run pre-release-build --if-present
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: ${{ inputs.publish-command }} -- --tag ${{ steps.version-builder.outputs.tag }}
+
+    outputs:
+      version: ${{ steps.version-builder.outputs.version }}
+      baseVersion: ${{ steps.version-builder.outputs.baseVersion }}
+      isPrerelease: ${{ steps.version-builder.outputs.isPrerelease }}
+      tag: ${{ steps.version-builder.outputs.tag }}
+      majorVersion: ${{ steps.version-builder.outputs.majorVersion }}
+      minorVersion: ${{ steps.version-builder.outputs.minorVersion }}
+      patchVersion: ${{ steps.version-builder.outputs.patchVersion }}

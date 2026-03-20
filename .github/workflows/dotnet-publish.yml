@@ -1,0 +1,109 @@
+name: dotnet publish
+
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        description: ".NET SDK version to use e.g. '10.0.x'."
+        required: false
+        type: string
+        default: "10.0.x"
+      source-url:
+        description: "NuGet source URL to publish to."
+        required: false
+        type: string
+        default: "https://api.nuget.org/v3/index.json"
+      preid-branches:
+        description: "Branches to use for preid versioning e.g. 'main:rc,master:rc,develop:dev,vnext:next'. Uses version-builder-action default when omitted."
+        required: false
+        type: string
+      force-preid:
+        description: "Forces preid versioning even if branch condition is not satisfied."
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      nuget-auth-token:
+        description: "Auth token for NuGet source."
+        required: false
+    outputs:
+      version:
+        description: "Full published version e.g. '1.5.6-rc.12'."
+        value: ${{ jobs.publish.outputs.version }}
+      baseVersion:
+        description: "Base version without preid e.g. '1.5.6'."
+        value: ${{ jobs.publish.outputs.baseVersion }}
+      isPrerelease:
+        description: "Whether the published version is a pre-release."
+        value: ${{ jobs.publish.outputs.isPrerelease }}
+      tag:
+        description: "NPM dist-tag equivalent e.g. 'latest', 'rc', 'v1-lts'."
+        value: ${{ jobs.publish.outputs.tag }}
+      majorVersion:
+        description: "Major version number e.g. '1'."
+        value: ${{ jobs.publish.outputs.majorVersion }}
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # required for accurate commit counting in version-builder-action
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
+          source-url: ${{ inputs.source-url }}
+          cache: true
+          cache-dependency-path: "./Directory.Packages.props"
+
+      - name: Print environment versions
+        run: |
+          DOTNET_V=$(dotnet --version)
+          echo "::notice::dotnet version: $DOTNET_V"
+
+      - name: Build version
+        id: version-builder
+        uses: sketch7/version-builder-action@v3
+        with:
+          preid-branches: ${{ inputs.preid-branches }}
+          force-preid: ${{ inputs.force-preid }}
+
+      - name: Set version envs
+        run: |
+          echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
+          echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.fileVersion }}" >> $GITHUB_ENV
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
+
+      - name: Pack
+        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c Release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
+
+      - name: Publish
+        run: dotnet nuget push "./artifacts/*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
+
+    outputs:
+      version: ${{ steps.version-builder.outputs.version }}
+      baseVersion: ${{ steps.version-builder.outputs.baseVersion }}
+      isPrerelease: ${{ steps.version-builder.outputs.isPrerelease }}
+      tag: ${{ steps.version-builder.outputs.tag }}
+      majorVersion: ${{ steps.version-builder.outputs.majorVersion }}

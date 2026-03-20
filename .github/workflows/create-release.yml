@@ -1,0 +1,87 @@
+# Tagged @release-v1 — language-agnostic, shared by node and dotnet workflows.
+name: create release
+
+# Generic, language-agnostic release workflow.
+# Creates an exact git tag (e.g. v2.1.0), updates the floating major tag (e.g. v2),
+# and creates a GitHub Release with auto-generated notes.
+# Called by both node and dotnet publish workflows after a stable publish.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Stable version to release e.g. '2.1.0'."
+        required: true
+        type: string
+      tag-tmpl:
+        description: "Tag template for git tags. Use `{major}` as placeholder e.g. 'v{major}' → 'v2' or '{major}.x' → '2.x'."
+        required: false
+        type: string
+        default: "v{major}"
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve release metadata
+        id: meta
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const version = '${{ inputs.version }}'
+            const major = Number(version.split('.')[0])
+            const tagTmpl = '${{ inputs.tag-tmpl }}'
+            const prefix = tagTmpl.split('{major}')[0]
+            const exactTag = `${prefix}${version}`
+            const floatingTag = tagTmpl.replace('{major}', String(major))
+
+            const { data: allTags } = await github.rest.repos.listTags({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            })
+            const existingMajors = allTags
+              .map(t => {
+                const m = t.name.match(/^v?(\d+)[\.\-]/)
+                return m ? Number(m[1]) : null
+              })
+              .filter(n => n !== null)
+            const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
+            const isLatest = major >= highestExistingMajor
+
+            core.setOutput('exact-tag', exactTag)
+            core.setOutput('floating-tag', floatingTag)
+            core.setOutput('is-latest', isLatest)
+            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, isLatest: ${isLatest}`)
+
+      - name: Push version tag
+        run: |
+          git tag ${{ steps.meta.outputs.exact-tag }}
+          git push origin ${{ steps.meta.outputs.exact-tag }}
+
+      - name: Update floating tag
+        run: |
+          git tag -f ${{ steps.meta.outputs.floating-tag }}
+          git push origin -f refs/tags/${{ steps.meta.outputs.floating-tag }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST_FLAG="--no-latest"
+          [[ "${{ steps.meta.outputs.is-latest }}" == "true" ]] && LATEST_FLAG="--latest"
+          gh release create "${{ steps.meta.outputs.exact-tag }}" --generate-notes $LATEST_FLAG

@@ -1,0 +1,107 @@
+# Tagged @release-v1 — language-agnostic, shared by node and dotnet workflows.
+name: prepare release
+
+on:
+  workflow_call:
+    inputs:
+      base-version:
+        description: "Full base version without preid e.g. '2.1.0'."
+        required: true
+        type: string
+      title:
+        description: "PR title override. Defaults to 'Release v{base-version}'."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Push release branch
+        run: git push origin HEAD:refs/heads/release/v${{ inputs.base-version }} --force
+
+      - name: Ensure target branch
+        id: ensure-target-branch
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const major = '${{ inputs.base-version }}'.split('.')[0]
+            const releaseBranch = `release/v${{ inputs.base-version }}`
+            const targetBranch = `v${major}`
+            core.setOutput('target-branch', targetBranch)
+
+            let created = false
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: targetBranch,
+              })
+              core.notice(`Target branch already exists: ${targetBranch}`)
+            } catch (err) {
+              if (err.status !== 404) throw err
+              const { data: refData } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${releaseBranch}`,
+              })
+              const sha = refData.object.sha
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/heads/${targetBranch}`,
+                sha,
+              })
+              core.notice(`Created target branch: ${targetBranch} (sha: ${sha})`)
+              created = true
+            }
+            core.setOutput('created', created)
+
+      - name: Create or update release PR
+        if: steps.ensure-target-branch.outputs.created == 'false'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const baseVersion = '${{ inputs.base-version }}'
+            const releaseBranch = `release/v${baseVersion}`
+            const targetBranch = '${{ steps.ensure-target-branch.outputs.target-branch }}'
+            const prTitle = `${{ inputs.title }}` || `Release v${baseVersion}`
+
+            const { data: existingPrs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${releaseBranch}`,
+              base: targetBranch,
+            })
+
+            if (existingPrs.length === 0) {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: prTitle,
+                head: releaseBranch,
+                base: targetBranch,
+                body: `Automated release PR for \`v${baseVersion}\`.\n\nMerge this PR to publish the stable release and create the GitHub Release.`,
+              })
+              core.notice(`Created release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
+            } else {
+              const pr = existingPrs[0]
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                title: prTitle,
+              })
+              core.notice(`Updated release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
+            }
