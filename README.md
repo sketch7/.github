@@ -4,13 +4,13 @@ Reusable GitHub Actions workflows for Node and .NET packages. Provides separate,
 
 ## Tags
 
-| Tag              | Workflows                                                       |
-| ---------------- | --------------------------------------------------------------- |
-| `node-libs-v1`   | `node-lib.yml` (deprecated — use v2 split workflows)            |
-| `node-libs-v2`   | `node-ci.yml`, `node-publish.yml`                               |
-| `dotnet-libs-v1` | `dotnet-package.yml` (deprecated — use v2 split workflows)      |
-| `dotnet-libs-v2` | `dotnet-ci.yml`, `dotnet-publish.yml`                           |
-| `release-v1`     | `prepare-release.yml`, `create-release.yml` (language-agnostic) |
+| Tag              | Workflows                                                         |
+| ---------------- | ----------------------------------------------------------------- |
+| `node-libs-v1`   | `node-lib.yml` (deprecated — use v2 split workflows)              |
+| `node-libs-v2`   | `node-ci.yml`, `node-publish.yml`                                 |
+| `dotnet-libs-v1` | `dotnet-package.yml` (deprecated — use v2 split workflows)        |
+| `dotnet-libs-v2` | `dotnet-ci.yml`, `dotnet-publish.yml`                             |
+| `release-v1`     | `prepare-release.yml`, `create-release.yml`, `node-bump-main.yml` |
 
 ```bash
 # move tag (shorthand)
@@ -75,7 +75,7 @@ Resolves the version via `version-builder-action`, bumps `package.json`, install
 
 ### `prepare-release.yml` · `@release-v1`
 
-After a pre-release publish on `main`, force-pushes the current HEAD to a `release/v{baseVersion}` branch, ensures the `v{major}` stable branch exists (creates it automatically on first use), and creates (or updates) a PR from `release/v{baseVersion}` → `v{major}`. When `v{major}` is bootstrapped for the first time both branches share the same commit, so the PR step is skipped — it will be created on the next push. Language-agnostic.
+After a pre-release publish on `main`, force-pushes the current HEAD to a `release/v{baseVersion}` branch, ensures the `v{major}` stable branch exists (creates it automatically on first use), and always creates (or updates) a PR from `release/v{baseVersion}` → `v{major}`. On first bootstrap, `v{major}` is created one commit behind the release branch so the PR has a real file diff — ensuring a squash merge onto `v{major}` always contains real changes and correctly triggers push-based workflows. Language-agnostic.
 
 **Inputs**
 
@@ -96,6 +96,25 @@ Creates the exact git tag (`v2.1.0`), force-updates the floating major tag (`v2`
 | ---------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
 | `version`  | ✅        | —          | e.g. `2.1.0`                                                                                                   |
 | `tag-tmpl` | —        | `v{major}` | Tag template; `{major}` is replaced with the major version number. e.g. `v{major}` → `v2`, `{major}.x` → `2.x` |
+
+**Outputs**
+
+| Output      | Example | Description                                                          |
+| ----------- | ------- | -------------------------------------------------------------------- |
+| `is-latest` | `true`  | Whether this major is the highest released. Used to guard bump-main. |
+
+---
+
+### `node-bump-main.yml` · `@release-v1`
+
+After a stable release on the latest major, bumps the minor version in `package.json` on the default branch and opens a PR. Uses `npm version minor --no-git-tag-version` and commits with `[skip ci]` to avoid redundant CI runs on the bump branch and PR. Callers should guard with `create-release` output `is-latest == 'true'` so backport releases (e.g. `v1.x` while main is on `v2`) don't trigger a spurious bump.
+
+**Inputs**
+
+| Input              | Required | Default | Description                                         |
+| ------------------ | -------- | ------- | --------------------------------------------------- |
+| `released-version` | ✅        | —       | The just-released stable version e.g. `2.1.0`       |
+| `default-branch`   | —        | `main`  | Branch to bump and target with the PR e.g. `master` |
 
 ---
 
@@ -140,7 +159,7 @@ flowchart TD
 
     CD_publish["CD: publish job<br/>node-publish.yml<br/>→ publishes 2.1.0-rc.5 --tag rc"]
     CD_publish -->|"ref_name == 'main'"| PrepareRelease
-    PrepareRelease["CD: prepare-release job<br/>prepare-release.yml<br/>→ creates/updates PR<br/>release/v2.1.0 → v2"]
+    PrepareRelease["CD: prepare-release job<br/>prepare-release.yml<br/>→ ensures v2 branch exists<br/>→ creates/updates PR<br/>release/v2.1.0 → v2"]
 
     RELEASE_PR["Release PR merged<br/>(release/v2.1.0 → v2)"] -->|on: push to v2| CI2
     RELEASE_PR --> CD_stable
@@ -151,7 +170,9 @@ flowchart TD
     CD_stable["CD: publish job<br/>node-publish.yml<br/>→ publishes 2.1.0 --tag latest"]
     CD_stable -->|"isPrerelease == false"| CreateRelease
 
-    CreateRelease["CD: release job<br/>create-release.yml<br/>→ tag v2.1.0<br/>→ float tag v2<br/>→ GitHub Release ✨"]
+    CreateRelease["CD: release job<br/>create-release.yml<br/>→ tag v2.1.0<br/>→ float tag v2<br/>→ GitHub Release ✨<br/>outputs: is-latest"]
+    CreateRelease -->|"is-latest == true"| BumpMain
+    BumpMain["CD: bump-main job<br/>node-bump-main.yml<br/>→ bumps main to 2.2.0<br/>→ opens chore/bump-v2.2.0 PR 🔼"]
 
     PUSH_LTS["Push to v1 (LTS fix)"] -->|on: push| CI3
     PUSH_LTS --> CD_lts
@@ -161,11 +182,12 @@ flowchart TD
     CD_lts["CD: publish job<br/>node-publish.yml<br/>→ publishes 1.5.3 --tag v1-lts"]
     CD_lts -->|"isPrerelease == false"| CreateRelease2
 
-    CreateRelease2["CD: release job<br/>create-release.yml<br/>→ tag v1.5.3<br/>→ float tag v1<br/>→ GitHub Release (non-latest) ✨"]
+    CreateRelease2["CD: release job<br/>create-release.yml<br/>→ tag v1.5.3<br/>→ float tag v1<br/>→ GitHub Release (non-latest) ✨<br/>is-latest == false → no bump"]
 
     style PrepareRelease fill:#dbeafe,stroke:#3b82f6
     style CreateRelease fill:#dcfce7,stroke:#16a34a
     style CreateRelease2 fill:#dcfce7,stroke:#16a34a
+    style BumpMain fill:#ede9fe,stroke:#7c3aed
     style CD_publish fill:#fef9c3,stroke:#ca8a04
     style CD_stable fill:#fef9c3,stroke:#ca8a04
     style CD_lts fill:#fef9c3,stroke:#ca8a04
@@ -266,6 +288,17 @@ jobs:
     uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
     with:
       version: ${{ needs.publish.outputs.version }}
+
+  bump-main:
+    name: Bump main
+    needs: [publish, release]
+    if: |
+      needs.release.result == 'success' &&
+      needs.release.outputs.is-latest == 'true' &&
+      github.event_name == 'push'
+    uses: sketch7/.github/.github/workflows/node-bump-main.yml@release-v1
+    with:
+      released-version: ${{ needs.publish.outputs.version }}
 ```
 
 ---

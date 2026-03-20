@@ -18,6 +18,10 @@ on:
         required: false
         type: string
         default: "v{major}"
+    outputs:
+      is-latest:
+        description: "Whether this release is the latest (highest major version)."
+        value: ${{ jobs.create-release.outputs.is-latest }}
 
 permissions:
   contents: write
@@ -26,6 +30,8 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
+    outputs:
+      is-latest: ${{ steps.meta.outputs.is-latest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6

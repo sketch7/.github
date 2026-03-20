@@ -50,25 +50,39 @@ jobs:
               core.notice(`Target branch already exists: ${targetBranch}`)
             } catch (err) {
               if (err.status !== 404) throw err
+
+              // Get the current SHA of the release branch (main HEAD at this point)
               const { data: refData } = await github.rest.git.getRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `heads/${releaseBranch}`,
               })
-              const sha = refData.object.sha
+              const releaseSha = refData.object.sha
+
+              // Create the target branch one commit BEHIND the release branch (at its parent).
+              // This gives the PR a real file-change diff — the actual work commit.
+              // A squash merge of a zero-change (empty) commit would produce a commit with no
+              // changed files, causing push-triggered workflows with paths-ignore to be skipped.
+              const { data: commitData } = await github.rest.git.getCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: releaseSha,
+              })
+              if (!commitData.parents.length) throw new Error('Release branch has no parent commit; cannot create target branch')
+              const parentSha = commitData.parents[0].sha
+
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `refs/heads/${targetBranch}`,
-                sha,
+                sha: parentSha,
               })
-              core.notice(`Created target branch: ${targetBranch} (sha: ${sha})`)
+              core.notice(`Created target branch: ${targetBranch} (sha: ${parentSha}), release branch is ahead at ${releaseSha}`)
               created = true
             }
             core.setOutput('created', created)
 
       - name: Create or update release PR
-        if: steps.ensure-target-branch.outputs.created == 'false'
         uses: actions/github-script@v8
         with:
           script: |

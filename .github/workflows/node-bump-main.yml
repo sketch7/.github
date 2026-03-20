@@ -1,0 +1,83 @@
+# Tagged @release-v1 — Node only. Called after a stable release to bump main's minor version.
+name: node bump main
+
+# Opens a PR bumping the minor version in package.json on the main branch.
+# Intended for the latest major only — callers should guard with is-latest from create-release.
+
+on:
+  workflow_call:
+    inputs:
+      released-version:
+        description: "The stable version that was just released e.g. '1.0.0'. Used to derive the bumped version."
+        required: true
+        type: string
+      default-branch:
+        description: "Branch to bump the version on e.g. 'main', 'master'."
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-main:
+    name: Bump main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ${{ inputs.default-branch }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.default-branch }}
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump minor version in package.json
+        id: bump
+        run: |
+          NEW_VERSION=$(npm version minor --no-git-tag-version | tr -d 'v')
+          echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Push bump branch
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new-version }}"
+          BRANCH="chore/bump-v${NEW_VERSION}"
+          git checkout -b "$BRANCH"
+          git add package.json
+          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
+          git push origin "$BRANCH"
+
+      - name: Create bump PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const newVersion = '${{ steps.bump.outputs.new-version }}'
+            const branch = `chore/bump-v${newVersion}`
+            const title = `chore: bump version to ${newVersion}`
+
+            const { data: existingPrs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branch}`,
+              base: '${{ inputs.default-branch }}',
+            })
+
+            if (existingPrs.length === 0) {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                head: branch,
+                base: '${{ inputs.default-branch }}',
+                body: `Automated version bump after releasing \`v${{ inputs.released-version }}\`.\n\nBumps \`package.json\` version to \`${newVersion}\` (next minor).`,
+              })
+              core.notice(`Created bump PR #${pr.number}: ${title}`)
+            } else {
+              core.notice(`Bump PR already exists: #${existingPrs[0].number}`)
+            }
