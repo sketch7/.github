@@ -84,6 +84,12 @@ After a pre-release publish on `main`, force-pushes the current HEAD to a `relea
 | `base-version` | ✅        | e.g. `2.1.0`                                             |
 | `title`        | —        | PR title override; defaults to `Release v{base-version}` |
 
+**Secrets**
+
+| Secret  | Required | Description                                                                                                                                                                                                                    |
+| ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `token` | —        | GitHub token to use. Defaults to `GITHUB_TOKEN`. **Public repos** must supply a PAT or GitHub App token with the `workflow` scope — `GITHUB_TOKEN` cannot push branches containing `.github/workflows/` files on public repos. |
+
 ---
 
 ### `create-release.yml` · `@release-v1`
@@ -200,6 +206,15 @@ flowchart TD
 ### Node package (npm / pnpm)
 
 > Minimal setup for a Node library published to a private registry using pnpm.
+
+> **Public repo?** The `prepare-release` job must pass a PAT or GitHub App token with the `workflow` scope via `secrets: token`. Store it as a repository secret (e.g. `GH_PAT`) and add to the job:
+> ```yaml
+>   prepare-release:
+>     ...
+>     secrets:
+>       token: ${{ secrets.GH_PAT }}
+> ```
+> Private repos work with the default `GITHUB_TOKEN` and no extra configuration.
 
 **.github/workflows/ci.yml**
 ```yaml
