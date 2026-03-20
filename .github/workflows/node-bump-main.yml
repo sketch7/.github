@@ -1,0 +1,105 @@
+# Tagged @release-v1 — Node only. Called after a stable release to bump main's minor version.
+name: node bump main
+
+# Opens a PR bumping the minor version in package.json on the main branch.
+# Intended for the latest major only — callers should guard with is-latest from create-release.
+
+on:
+  workflow_call:
+    inputs:
+      released-version:
+        description: "The stable version that was just released e.g. '1.0.0'. Used to derive the bumped version."
+        required: true
+        type: string
+      node-version-file:
+        description: "File containing the Node version spec e.g. package.json, .nvmrc."
+        required: false
+        type: string
+        default: "package.json"
+      package-manager:
+        description: "Package manager to use: 'npm' or 'pnpm'."
+        required: false
+        type: string
+        default: pnpm
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-main:
+    name: Bump Main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        if: inputs.package-manager == 'pnpm'
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump minor version in package.json
+        id: bump
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs')
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+            const parts = pkg.version.split('.')
+            const bumped = `${parts[0]}.${Number(parts[1]) + 1}.0`
+            pkg.version = bumped
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n')
+            core.setOutput('new-version', bumped)
+            core.notice(`Bumped package.json version: ${pkg.version} → ${bumped}`)
+
+      - name: Push bump branch
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new-version }}"
+          BRANCH="chore/bump-v${NEW_VERSION}"
+          git checkout -b "$BRANCH"
+          git add package.json
+          git commit -m "chore: bump version to ${NEW_VERSION}"
+          git push origin "$BRANCH"
+
+      - name: Create bump PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const newVersion = '${{ steps.bump.outputs.new-version }}'
+            const branch = `chore/bump-v${newVersion}`
+            const title = `chore: bump version to ${newVersion}`
+
+            const { data: existingPrs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branch}`,
+              base: 'main',
+            })
+
+            if (existingPrs.length === 0) {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                head: branch,
+                base: 'main',
+                body: `Automated version bump after releasing \`v${{ inputs.released-version }}\`.\n\nBumps \`package.json\` version to \`${newVersion}\` (next minor).`,
+              })
+              core.notice(`Created bump PR #${pr.number}: ${title}`)
+            } else {
+              core.notice(`Bump PR already exists: #${existingPrs[0].number}`)
+            }

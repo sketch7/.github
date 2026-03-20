@@ -68,7 +68,6 @@ jobs:
             core.setOutput('created', created)
 
       - name: Create or update release PR
-        if: steps.ensure-target-branch.outputs.created == 'false'
         uses: actions/github-script@v8
         with:
           script: |
