@@ -57,40 +57,27 @@ jobs:
                 repo: context.repo.repo,
                 ref: `heads/${releaseBranch}`,
               })
-              const originalSha = refData.object.sha
+              const releaseSha = refData.object.sha
 
-              // Fetch the tree SHA from the original commit so we can create an empty commit.
-              // The empty commit advances the release branch by one commit so that it is ahead
-              // of the newly-created target branch — GitHub requires head to be ahead of base
-              // to allow creating a PR. Without this the PR API returns 422 "No commits between".
+              // Create the target branch one commit BEHIND the release branch (at its parent).
+              // This gives the PR a real file-change diff — the actual work commit.
+              // A squash merge of a zero-change (empty) commit would produce a commit with no
+              // changed files, causing push-triggered workflows with paths-ignore to be skipped.
               const { data: commitData } = await github.rest.git.getCommit({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                commit_sha: originalSha,
+                commit_sha: releaseSha,
               })
-              const { data: emptyCommit } = await github.rest.git.createCommit({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                message: `chore: prepare release branch v${{ inputs.base-version }}`,
-                tree: commitData.tree.sha,
-                parents: [originalSha],
-              })
-              await github.rest.git.updateRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `heads/${releaseBranch}`,
-                sha: emptyCommit.sha,
-              })
+              if (!commitData.parents.length) throw new Error('Release branch has no parent commit; cannot create target branch')
+              const parentSha = commitData.parents[0].sha
 
-              // Create the target branch from the original SHA (before the empty commit)
-              // so that the release branch is exactly 1 commit ahead → PR can be opened
               await github.rest.git.createRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `refs/heads/${targetBranch}`,
-                sha: originalSha,
+                sha: parentSha,
               })
-              core.notice(`Created target branch: ${targetBranch} (sha: ${originalSha}), advanced ${releaseBranch} to ${emptyCommit.sha}`)
+              core.notice(`Created target branch: ${targetBranch} (sha: ${parentSha}), release branch is ahead at ${releaseSha}`)
               created = true
             }
             core.setOutput('created', created)
