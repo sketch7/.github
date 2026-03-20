@@ -75,7 +75,7 @@ Resolves the version via `version-builder-action`, bumps `package.json`, install
 
 ### `prepare-release.yml` · `@release-v1`
 
-After a pre-release publish on `main`, force-pushes the current HEAD to a `release/v{baseVersion}` branch and creates (or updates) a PR targeting the `v{major}` stable branch. Language-agnostic.
+After a pre-release publish on `main`, force-pushes the current HEAD to a `release/v{baseVersion}` branch, ensures the `v{major}` stable branch exists (creates it automatically on first use), and creates (or updates) a PR from `release/v{baseVersion}` → `v{major}`. When `v{major}` is bootstrapped for the first time both branches share the same commit, so the PR step is skipped — it will be created on the next push. Language-agnostic.
 
 **Inputs**
 
