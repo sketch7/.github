@@ -11,16 +11,6 @@ on:
         description: "The stable version that was just released e.g. '1.0.0'. Used to derive the bumped version."
         required: true
         type: string
-      node-version-file:
-        description: "File containing the Node version spec e.g. package.json, .nvmrc."
-        required: false
-        type: string
-        default: "package.json"
-      package-manager:
-        description: "Package manager to use: 'npm' or 'pnpm'."
-        required: false
-        type: string
-        default: pnpm
 
 permissions:
   contents: write
@@ -37,15 +27,6 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        if: inputs.package-manager == 'pnpm'
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: ${{ inputs.node-version-file }}
-
       - name: Configure git user
         run: |
           git config user.name "github-actions[bot]"
@@ -53,17 +34,9 @@ jobs:
 
       - name: Bump minor version in package.json
         id: bump
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const fs = require('fs')
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-            const parts = pkg.version.split('.')
-            const bumped = `${parts[0]}.${Number(parts[1]) + 1}.0`
-            pkg.version = bumped
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n')
-            core.setOutput('new-version', bumped)
-            core.notice(`Bumped package.json version: ${pkg.version} → ${bumped}`)
+        run: |
+          NEW_VERSION=$(npm version minor --no-git-tag-version | tr -d 'v')
+          echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Push bump branch
         run: |
