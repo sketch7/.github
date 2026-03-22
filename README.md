@@ -130,9 +130,18 @@ Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish.
 
 **Inputs**
 
-| Input            | Default  | Description      |
-| ---------------- | -------- | ---------------- |
-| `dotnet-version` | `10.0.x` | .NET SDK version |
+| Input                      | Default  | Description                                                                                                                                    |
+| -------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dotnet-version`           | `10.0.x` | .NET SDK version                                                                                                                               |
+| `solution-file`            | —        | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                 |
+| `private-nuget-env-prefix` | —        | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
+
+**Secrets**
+
+| Secret                     | Description                                                      |
+| -------------------------- | ---------------------------------------------------------------- |
+| `private-nuget-username`   | Username for private NuGet registry. Defaults to `github.actor`. |
+| `private-nuget-auth-token` | Auth token for private NuGet registry.                           |
 
 ---
 
@@ -142,14 +151,22 @@ Resolves the version via `version-builder-action`, builds, packs, and pushes NuG
 
 **Inputs**
 
-| Input            | Default                               | Description                              |
-| ---------------- | ------------------------------------- | ---------------------------------------- |
-| `dotnet-version` | `10.0.x`                              | .NET SDK version                         |
-| `source-url`     | `https://api.nuget.org/v3/index.json` | NuGet source URL                         |
-| `preid-branches` | _(action default)_                    | Branch → preid mapping                   |
-| `force-preid`    | `false`                               | Force preid even if branch doesn't match |
+| Input                      | Default                               | Description                                                                                                                                    |
+| -------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dotnet-version`           | `10.0.x`                              | .NET SDK version                                                                                                                               |
+| `source-url`               | `https://api.nuget.org/v3/index.json` | NuGet source URL to publish to                                                                                                                 |
+| `solution-file`            | —                                     | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                 |
+| `private-nuget-env-prefix` | —                                     | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
+| `preid-branches`           | _(action default)_                    | Branch → preid mapping e.g. `main:rc,develop:dev`                                                                                              |
+| `force-preid`              | `false`                               | Force preid even if branch doesn't match                                                                                                       |
 
-**Secrets** `nuget-auth-token`
+**Secrets**
+
+| Secret                     | Description                                                          |
+| -------------------------- | -------------------------------------------------------------------- |
+| `nuget-auth-token`         | Auth token for the NuGet publish source. Defaults to `GITHUB_TOKEN`. |
+| `private-nuget-username`   | Username for private NuGet registry. Defaults to `github.actor`.     |
+| `private-nuget-auth-token` | Auth token for private NuGet registry.                               |
 
 **Outputs** `version`, `baseVersion`, `isPrerelease`, `tag`, `majorVersion`
 
@@ -320,6 +337,8 @@ jobs:
 
 ### .NET / NuGet package
 
+> Minimal setup for a .NET library published to NuGet.org. For a **private registry** (e.g. GitHub Packages), set `private-nuget-env-prefix` and supply the matching credentials — see the private registry example below.
+
 **.github/workflows/ci.yml**
 ```yaml
 name: CI
@@ -334,12 +353,22 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   ci:
     name: dotnet CI
     uses: sketch7/.github/.github/workflows/dotnet-ci.yml@dotnet-libs-v2
 ```
+
+> With a **private NuGet registry** (e.g. GitHub Packages), add:
+> ```yaml
+>     with:
+>       private-nuget-env-prefix: MY_NUGET
+>     secrets:
+>       private-nuget-auth-token: ${{ secrets.GITHUB_TOKEN }}
+> ```
+> And in your `NuGet.Config` reference the env vars as `%MY_NUGET_USERNAME%` / `%MY_NUGET_TOKEN%`.
 
 **.github/workflows/cd.yml**
 ```yaml
@@ -363,6 +392,7 @@ on:
 permissions:
   id-token: write
   contents: write
+  packages: write
 
 jobs:
   publish:

@@ -8,6 +8,21 @@ on:
         required: false
         type: string
         default: "10.0.x"
+      solution-file:
+        description: "Solution or project file to build. Auto-discovered when omitted."
+        required: false
+        type: string
+      private-nuget-env-prefix:
+        description: "Env var prefix for NuGet credentials (must match NuGet.Config %{PREFIX}_USERNAME% / %{PREFIX}_TOKEN%). When set, configures credentials."
+        required: false
+        type: string
+    secrets:
+      private-nuget-username:
+        description: "Username for private NuGet registry. Defaults to github.actor when omitted."
+        required: false
+      private-nuget-auth-token:
+        description: "Auth token for private NuGet registry."
+        required: false
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -17,6 +32,7 @@ env:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   checks:
@@ -33,16 +49,32 @@ jobs:
           cache: true
           cache-dependency-path: "./Directory.Packages.props"
 
+      - name: Configure private NuGet credentials
+        if: inputs.private-nuget-env-prefix != ''
+        run: |
+          echo "${{ inputs.private-nuget-env-prefix }}_USERNAME=${{ secrets.private-nuget-username || github.actor }}" >> $GITHUB_ENV
+          echo "${{ inputs.private-nuget-env-prefix }}_TOKEN=${{ secrets.private-nuget-auth-token }}" >> $GITHUB_ENV
+
       - name: Print environment versions
         run: |
           DOTNET_V=$(dotnet --version)
           echo "::notice::dotnet version: $DOTNET_V"
 
+      - name: Resolve solution file
+        run: |
+          SLN="${{ inputs.solution-file }}"
+          if [[ -z "$SLN" && -f "package.json" ]]; then
+            SLN="$(jq -r '.dotnetBuildSln // empty' package.json 2>/dev/null)"
+          fi
+
+          echo "SLN=$SLN" >> "$GITHUB_ENV"
+          echo "::notice::resolved solution-file: ${SLN:-<empty>}"
+
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore ${SLN:+"$SLN"}
 
       - name: Build
-        run: dotnet build --no-restore
+        run: dotnet build ${SLN:+"$SLN"} --no-restore
 
       - name: Test
-        run: dotnet test --no-build
+        run: dotnet test ${SLN:+"$SLN"} --no-build
