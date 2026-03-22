@@ -60,11 +60,21 @@ jobs:
           DOTNET_V=$(dotnet --version)
           echo "::notice::dotnet version: $DOTNET_V"
 
+      - name: Resolve solution file
+        run: |
+          SLN="${{ inputs.solution-file }}"
+          if [[ -z "$SLN" && -f "package.json" ]]; then
+            SLN="$(jq -r '.dotnetBuildSln // empty' package.json 2>/dev/null)"
+          fi
+
+          echo "SLN=$SLN" >> "$GITHUB_ENV"
+          echo "::notice::resolved solution-file: ${SLN:-<empty>}"
+
       - name: Restore dependencies
-        run: dotnet restore ${{ inputs.solution-file }}
+        run: dotnet restore ${SLN:+"$SLN"}
 
       - name: Build
-        run: dotnet build ${{ inputs.solution-file }} --no-restore
+        run: dotnet build ${SLN:+"$SLN"} --no-restore
 
       - name: Test
-        run: dotnet test ${{ inputs.solution-file }} --no-build
+        run: dotnet test ${SLN:+"$SLN"} --no-build

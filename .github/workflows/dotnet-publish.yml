@@ -110,14 +110,32 @@ jobs:
           echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.fileVersion }}" >> $GITHUB_ENV
 
+      - name: Resolve solution file
+        run: |
+          SLN="${{ inputs.solution-file }}"
+          if [[ -z "$SLN" && -f "package.json" ]]; then
+            SLN="$(jq -r '.dotnetBuildSln // empty' package.json 2>/dev/null)"
+          fi
+
+          echo "SLN=$SLN" >> "$GITHUB_ENV"
+          echo "::notice::resolved solution-file: ${SLN:-<empty>}"
+
       - name: Restore dependencies
-        run: dotnet restore ${{ inputs.solution-file }}
+        run: dotnet restore ${SLN:+"$SLN"}
 
       - name: Build
-        run: dotnet build ${{ inputs.solution-file }} -c Release --no-restore /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
+        run: |
+          dotnet build ${SLN:+"$SLN"} \
+            -c Release --no-restore \
+            /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
 
       - name: Pack
-        run: dotnet pack ${{ inputs.solution-file }} -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c Release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
+        run: |
+          dotnet pack ${SLN:+"$SLN"} \
+            -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION \
+            -o ./artifacts -c Release \
+            --include-symbols -p:SymbolPackageFormat=snupkg \
+            --no-build --no-restore
 
       - name: Publish
         run: dotnet nuget push "./artifacts/*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
