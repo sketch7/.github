@@ -145,6 +145,7 @@ jobs:
           files: ${{ inputs.version-replace-glob }}
           search-text: ${{ inputs.version-replace }}
           replacement-text: ${{ env.VERSION }}
+          exclude: "**/node_modules/**"
 
       - name: Pre-release build
         run: npm run pre-release-build --if-present
