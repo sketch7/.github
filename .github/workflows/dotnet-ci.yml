@@ -8,6 +8,18 @@ on:
         required: false
         type: string
         default: "10.0.x"
+      solution-file:
+        description: "Solution or project file to build. Auto-discovered when omitted."
+        required: false
+        type: string
+      private-nuget-registry:
+        description: "Private NuGet registry URL. When set, configures auth for that registry."
+        required: false
+        type: string
+    secrets:
+      private-nuget-auth-token:
+        description: "Auth token for private NuGet registry."
+        required: false
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -33,16 +45,25 @@ jobs:
           cache: true
           cache-dependency-path: "./Directory.Packages.props"
 
+      - name: Configure private NuGet registry
+        if: inputs.private-nuget-registry != ''
+        run: |
+          dotnet nuget add source "${{ inputs.private-nuget-registry }}" \
+            -n private-registry \
+            --username "${{ github.actor }}" \
+            --password "${{ secrets.private-nuget-auth-token }}" \
+            --store-password-in-clear-text
+
       - name: Print environment versions
         run: |
           DOTNET_V=$(dotnet --version)
           echo "::notice::dotnet version: $DOTNET_V"
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore ${{ inputs.solution-file }}
 
       - name: Build
-        run: dotnet build --no-restore
+        run: dotnet build ${{ inputs.solution-file }} --no-restore
 
       - name: Test
-        run: dotnet test --no-build
+        run: dotnet test ${{ inputs.solution-file }} --no-build

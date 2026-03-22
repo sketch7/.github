@@ -13,6 +13,14 @@ on:
         required: false
         type: string
         default: "https://api.nuget.org/v3/index.json"
+      solution-file:
+        description: "Solution or project file to build. Auto-discovered when omitted."
+        required: false
+        type: string
+      private-nuget-registry:
+        description: "Private NuGet registry URL. When set, configures auth for that registry."
+        required: false
+        type: string
       preid-branches:
         description: "Branches to use for preid versioning e.g. 'main:rc,master:rc,develop:dev,vnext:next'. Uses version-builder-action default when omitted."
         required: false
@@ -25,6 +33,9 @@ on:
     secrets:
       nuget-auth-token:
         description: "Auth token for NuGet source."
+        required: false
+      private-nuget-auth-token:
+        description: "Auth token for private NuGet registry."
         required: false
     outputs:
       version:
@@ -53,6 +64,7 @@ env:
 permissions:
   contents: write
   id-token: write
+  packages: write
 
 jobs:
   publish:
@@ -72,6 +84,15 @@ jobs:
           cache: true
           cache-dependency-path: "./Directory.Packages.props"
 
+      - name: Configure private NuGet registry
+        if: inputs.private-nuget-registry != ''
+        run: |
+          dotnet nuget add source "${{ inputs.private-nuget-registry }}" \
+            -n private-registry \
+            --username "${{ github.actor }}" \
+            --password "${{ secrets.private-nuget-auth-token }}" \
+            --store-password-in-clear-text
+
       - name: Print environment versions
         run: |
           DOTNET_V=$(dotnet --version)
@@ -90,13 +111,13 @@ jobs:
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.fileVersion }}" >> $GITHUB_ENV
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore ${{ inputs.solution-file }}
 
       - name: Build
-        run: dotnet build -c Release --no-restore /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
+        run: dotnet build ${{ inputs.solution-file }} -c Release --no-restore /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
 
       - name: Pack
-        run: dotnet pack -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c Release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
+        run: dotnet pack ${{ inputs.solution-file }} -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION -o ./artifacts -c Release --include-symbols -p:SymbolPackageFormat=snupkg --no-build --no-restore
 
       - name: Publish
         run: dotnet nuget push "./artifacts/*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
