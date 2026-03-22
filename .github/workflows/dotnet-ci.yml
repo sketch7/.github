@@ -12,11 +12,14 @@ on:
         description: "Solution or project file to build. Auto-discovered when omitted."
         required: false
         type: string
-      private-nuget-registry:
-        description: "Private NuGet registry URL. When set, configures auth for that registry."
+      private-nuget-env-prefix:
+        description: "Env var prefix for NuGet credentials (must match NuGet.Config %{PREFIX}_USERNAME% / %{PREFIX}_TOKEN%). When set, configures credentials."
         required: false
         type: string
     secrets:
+      private-nuget-username:
+        description: "Username for private NuGet registry."
+        required: false
       private-nuget-auth-token:
         description: "Auth token for private NuGet registry."
         required: false
@@ -45,14 +48,11 @@ jobs:
           cache: true
           cache-dependency-path: "./Directory.Packages.props"
 
-      - name: Configure private NuGet registry
-        if: inputs.private-nuget-registry != ''
+      - name: Configure private NuGet credentials
+        if: inputs.private-nuget-env-prefix != ''
         run: |
-          dotnet nuget add source "${{ inputs.private-nuget-registry }}" \
-            -n private-registry \
-            --username "${{ github.actor }}" \
-            --password "${{ secrets.private-nuget-auth-token }}" \
-            --store-password-in-clear-text
+          echo "${{ inputs.private-nuget-env-prefix }}_USERNAME=${{ secrets.private-nuget-username }}" >> $GITHUB_ENV
+          echo "${{ inputs.private-nuget-env-prefix }}_TOKEN=${{ secrets.private-nuget-auth-token }}" >> $GITHUB_ENV
 
       - name: Print environment versions
         run: |
