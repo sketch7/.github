@@ -9,10 +9,14 @@ on:
         type: string
         default: "10.0.x"
       source-url:
-        description: "NuGet source URL to publish to."
+        description: "NuGet source URL passed to setup-dotnet for credential configuration."
         required: false
         type: string
         default: "https://api.nuget.org/v3/index.json"
+      source-name:
+        description: "NuGet source name (from NuGet.Config) used for 'dotnet nuget push -s'. Falls back to source-url when omitted."
+        required: false
+        type: string
       solution-file:
         description: "Solution or project file to build. Auto-discovered when omitted."
         required: false
@@ -32,13 +36,10 @@ on:
         default: false
     secrets:
       nuget-auth-token:
-        description: "Auth token for NuGet source."
+        description: "Auth token for NuGet source (also used for private NuGet restore credentials when private-nuget-env-prefix is set)."
         required: false
       private-nuget-username:
         description: "Username for private NuGet registry. Defaults to github.actor when omitted."
-        required: false
-      private-nuget-auth-token:
-        description: "Auth token for private NuGet registry."
         required: false
     outputs:
       version:
@@ -91,7 +92,7 @@ jobs:
         if: inputs.private-nuget-env-prefix != ''
         run: |
           echo "${{ inputs.private-nuget-env-prefix }}_USERNAME=${{ secrets.private-nuget-username || github.actor }}" >> $GITHUB_ENV
-          echo "${{ inputs.private-nuget-env-prefix }}_TOKEN=${{ secrets.private-nuget-auth-token }}" >> $GITHUB_ENV
+          echo "${{ inputs.private-nuget-env-prefix }}_TOKEN=$NUGET_AUTH_TOKEN" >> $GITHUB_ENV
 
       - name: Print environment versions
         run: |
@@ -138,7 +139,7 @@ jobs:
             --no-build --no-restore
 
       - name: Publish
-        run: dotnet nuget push "./artifacts/*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-url }} --skip-duplicate
+        run: dotnet nuget push "./artifacts/*.nupkg" -k $NUGET_AUTH_TOKEN -s ${{ inputs.source-name || inputs.source-url }} --skip-duplicate
 
     outputs:
       version: ${{ steps.version-builder.outputs.version }}
