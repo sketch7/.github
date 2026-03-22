@@ -163,10 +163,10 @@ Resolves the version via `version-builder-action`, builds, packs, and pushes NuG
 
 **Secrets**
 
-| Secret                   | Description                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Secret                   | Description                                                                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `nuget-auth-token`       | Auth token for the NuGet publish source. Also used as `{PREFIX}_TOKEN` for private restore credentials. Defaults to `GITHUB_TOKEN`. |
-| `private-nuget-username` | Username for private NuGet registry. Defaults to `github.actor`.                                                               |
+| `private-nuget-username` | Username for private NuGet registry. Defaults to `github.actor`.                                                                    |
 
 **Outputs** `version`, `baseVersion`, `isPrerelease`, `tag`, `majorVersion`
 
