@@ -21,6 +21,11 @@ on:
         description: "Env var prefix for NuGet credentials (must match NuGet.Config %{PREFIX}_USERNAME% / %{PREFIX}_TOKEN%). When set, configures credentials."
         required: false
         type: string
+      private-nuget-username:
+        description: "Username for private NuGet registry. Defaults to x-access-token for token-based auth."
+        required: false
+        type: string
+        default: "x-access-token"
       preid-branches:
         description: "Branches to use for preid versioning e.g. 'main:rc,master:rc,develop:dev,vnext:next'. Uses version-builder-action default when omitted."
         required: false
@@ -33,9 +38,6 @@ on:
     secrets:
       nuget-auth-token:
         description: "Auth token for NuGet source."
-        required: false
-      private-nuget-username:
-        description: "Username for private NuGet registry."
         required: false
       private-nuget-auth-token:
         description: "Auth token for private NuGet registry."
@@ -90,7 +92,7 @@ jobs:
       - name: Configure private NuGet credentials
         if: inputs.private-nuget-env-prefix != ''
         run: |
-          echo "${{ inputs.private-nuget-env-prefix }}_USERNAME=${{ secrets.private-nuget-username }}" >> $GITHUB_ENV
+          echo "${{ inputs.private-nuget-env-prefix }}_USERNAME=${{ inputs.private-nuget-username }}" >> $GITHUB_ENV
           echo "${{ inputs.private-nuget-env-prefix }}_TOKEN=${{ secrets.private-nuget-auth-token }}" >> $GITHUB_ENV
 
       - name: Print environment versions
