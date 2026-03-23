@@ -79,10 +79,10 @@ After a pre-release publish on `main`, force-pushes the current HEAD to a `relea
 
 **Inputs**
 
-| Input          | Required | Description                                              |
-| -------------- | -------- | -------------------------------------------------------- |
-| `base-version` | ✅        | e.g. `2.1.0`                                             |
-| `title`        | —        | PR title override; defaults to `Release v{base-version}` |
+| Input          | Required | Description                                               |
+| -------------- | -------- | --------------------------------------------------------- |
+| `base-version` | ✅        | e.g. `2.1.0`                                              |
+| `title`        | —        | PR title override; defaults to `release: v{base-version}` |
 
 **Secrets**
 
@@ -225,15 +225,18 @@ flowchart TD
 > Minimal setup for a Node library published to a private registry using pnpm.
 
 > **Public repo?** The `prepare-release` job must pass a PAT or GitHub App token with the `workflow` scope via `secrets: token`. Store it as a repository secret (e.g. `GH_PAT`) and add to the job:
+>
 > ```yaml
 >   prepare-release:
 >     ...
 >     secrets:
 >       token: ${{ secrets.GH_PAT }}
 > ```
+>
 > Private repos work with the default `GITHUB_TOKEN` and no extra configuration.
 
 **.github/workflows/ci.yml**
+
 ```yaml
 name: CI
 
@@ -260,6 +263,7 @@ jobs:
 ```
 
 **.github/workflows/cd.yml**
+
 ```yaml
 name: CD
 
@@ -340,6 +344,7 @@ jobs:
 > Minimal setup for a .NET library published to NuGet.org. For a **private registry** (e.g. GitHub Packages), set `private-nuget-env-prefix` and supply the matching credentials — see the private registry example below.
 
 **.github/workflows/ci.yml**
+
 ```yaml
 name: CI
 
@@ -362,16 +367,19 @@ jobs:
 ```
 
 > With a **private NuGet registry** (e.g. GitHub Packages), add:
+>
 > ```yaml
->     with:
->       private-nuget-env-prefix: MY_NUGET
->       source-name: my-nuget-source  # source key in NuGet.Config
->     secrets:
->       nuget-auth-token: ${{ secrets.GITHUB_TOKEN }}
+> with:
+>   private-nuget-env-prefix: MY_NUGET
+>   source-name: my-nuget-source # source key in NuGet.Config
+> secrets:
+>   nuget-auth-token: ${{ secrets.GITHUB_TOKEN }}
 > ```
+>
 > And in your `NuGet.Config` reference the env vars as `%MY_NUGET_USERNAME%` / `%MY_NUGET_TOKEN%`.
 
 **.github/workflows/cd.yml**
+
 ```yaml
 name: CD
 
