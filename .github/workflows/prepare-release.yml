@@ -98,7 +98,7 @@ jobs:
             const baseVersion = '${{ inputs.base-version }}'
             const releaseBranch = `release/v${baseVersion}`
             const targetBranch = '${{ steps.ensure-target-branch.outputs.target-branch }}'
-            const prTitle = `${{ inputs.title }}` || `Release v${baseVersion}`
+            const prTitle = `${{ inputs.title }}` || `release: v${baseVersion}`
 
             const { data: existingPrs } = await github.rest.pulls.list({
               owner: context.repo.owner,
@@ -108,8 +108,10 @@ jobs:
               base: targetBranch,
             })
 
-            if (existingPrs.length === 0) {
-              const { data: pr } = await github.rest.pulls.create({
+            let action;
+            let pr = existingPrs?.[0];
+            if (!pr) {
+              const { data: created } = await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: prTitle,
@@ -117,14 +119,15 @@ jobs:
                 base: targetBranch,
                 body: `Automated release PR for \`v${baseVersion}\`.\n\nMerge this PR to publish the stable release and create the GitHub Release.`,
               })
-              core.notice(`Created release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
+              action = 'Created'
+              pr = created
             } else {
-              const pr = existingPrs[0]
               await github.rest.pulls.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: pr.number,
                 title: prTitle,
               })
-              core.notice(`Updated release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
+              action = 'Updated'
             }
+            core.notice(`${action} release PR #${pr.number}: ${prTitle} (${releaseBranch} → ${targetBranch})`)
