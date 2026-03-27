@@ -154,7 +154,16 @@ jobs:
         run: npm run build
 
       - name: Publish
+        id: publish
         run: ${{ inputs.publish-command }} -- --tag ${{ steps.version-builder.outputs.tag }}
+
+      - name: Upload dist on failure
+        if: failure() && steps.publish.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: warn
 
     outputs:
       version: ${{ steps.version-builder.outputs.version }}
