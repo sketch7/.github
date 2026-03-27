@@ -45,10 +45,19 @@ on:
       private-npm-auth-token:
         description: "Auth token for private NPM registry."
         required: false
+      vercel-token:
+        description: "Vercel API token. Required when deploy is true."
+        required: false
+      vercel-org-id:
+        description: "Vercel org/team ID. Required when deploy is true."
+        required: false
+      vercel-project-id:
+        description: "Vercel project ID. Required when deploy is true."
+        required: false
     outputs:
-      page_url:
-        description: "URL of the deployed GitHub Pages site."
-        value: ${{ jobs.deploy.outputs.page_url }}
+      deployment_url:
+        description: "URL of the Vercel deployment."
+        value: ${{ jobs.build.outputs.deployment_url }}
 
 jobs:
   build:
@@ -56,6 +65,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      deployment_url: ${{ steps.vercel-deploy.outputs.deployment_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -99,30 +110,21 @@ jobs:
       - name: Build
         run: ${{ inputs.build-command }}
 
-      - name: Configure Pages
+      - name: Prepare Vercel output
         if: inputs.deploy
-        uses: actions/configure-pages@v6
+        run: |
+          mkdir -p .vercel/output
+          echo '{"version":3}' > .vercel/output/config.json
+          cp -r ${{ inputs.output-dir }} .vercel/output/static
 
-      - name: Upload Pages artifact
+      - name: Deploy to Vercel
         if: inputs.deploy
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: ${{ inputs.output-dir }}
-
-  deploy:
-    name: Deploy
-    needs: build
-    if: inputs.deploy
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    outputs:
-      page_url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v5
+        id: vercel-deploy
+        env:
+          VERCEL_ORG_ID: ${{ secrets.vercel-org-id }}
+          VERCEL_PROJECT_ID: ${{ secrets.vercel-project-id }}
+        run: |
+          DEPLOY_OUTPUT=$(npx vercel deploy --prebuilt --prod --token=${{ secrets.vercel-token }} --no-color)
+          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep '^https://' | tail -1)
+          echo "deployment_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "::notice::Storybook deployed to $DEPLOY_URL"
