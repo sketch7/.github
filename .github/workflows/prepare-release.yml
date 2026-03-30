@@ -24,6 +24,9 @@ permissions:
 jobs:
   prepare-release:
     name: Prepare Release
+    concurrency:
+      group: prepare-release-v${{ inputs.base-version }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -89,6 +92,57 @@ jobs:
               created = true
             }
             core.setOutput('created', created)
+
+      - name: Sync release branch with target branch when PR exists
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.token || github.token }}
+          script: |
+            const baseVersion = '${{ inputs.base-version }}'
+            const releaseBranch = `release/v${baseVersion}`
+            const targetBranch = '${{ steps.ensure-target-branch.outputs.target-branch }}'
+
+            const { data: existingPrs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${releaseBranch}`,
+              base: targetBranch,
+            })
+
+            const pr = existingPrs?.[0]
+            if (!pr) {
+              core.info('No existing release PR found; skipping branch sync')
+              return
+            }
+
+            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              basehead: `${targetBranch}...${releaseBranch}`,
+            })
+
+            if (comparison.status === 'behind') {
+              try {
+                const { data: mergeResult } = await github.rest.repos.merge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  base: releaseBranch,
+                  head: targetBranch,
+                  commit_message: `chore(release): sync ${releaseBranch} with ${targetBranch}`,
+                })
+                core.notice(`Synced ${releaseBranch} with ${targetBranch} at ${mergeResult.sha}`)
+              } catch (err) {
+                if (err.status === 409) {
+                  core.setFailed(`Cannot auto-sync ${releaseBranch} with ${targetBranch} due to merge conflicts. Resolve conflicts manually and rerun.`)
+                  return
+                }
+                throw err
+              }
+              return
+            }
+
+            core.info(`No sync required. Comparison status: ${comparison.status}`)
 
       - name: Create or update release PR
         uses: actions/github-script@v8
