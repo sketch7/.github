@@ -1,0 +1,130 @@
+name: node storybook
+
+on:
+  workflow_call:
+    inputs:
+      node-version-file:
+        description: "File containing the Node version spec e.g. package.json, .nvmrc."
+        required: false
+        type: string
+        default: "package.json"
+      package-manager:
+        description: "Package manager to use: 'npm' or 'pnpm'."
+        required: false
+        type: string
+        default: npm
+      private-npm-registry:
+        description: "NPM private registry URL. When set, configures auth for that registry."
+        required: false
+        type: string
+      private-npm-scope:
+        description: "NPM private scope. Auto-resolved from package.json when omitted."
+        required: false
+        type: string
+      lint-command:
+        description: "Command to lint storybook. Set to empty string to skip."
+        required: false
+        type: string
+        default: "npm run lint:storybook"
+      build-command:
+        description: "Command to build storybook."
+        required: false
+        type: string
+        default: "npm run build:storybook"
+      output-dir:
+        description: "Directory containing the built storybook static output."
+        required: false
+        type: string
+        default: "storybook/storybook-static"
+      deploy:
+        description: "Deploy the built storybook to GitHub Pages."
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      private-npm-auth-token:
+        description: "Auth token for private NPM registry."
+        required: false
+      vercel-token:
+        description: "Vercel API token. Required when deploy is true."
+        required: false
+      vercel-org-id:
+        description: "Vercel org/team ID. Required when deploy is true."
+        required: false
+      vercel-project-id:
+        description: "Vercel project ID. Required when deploy is true."
+        required: false
+    outputs:
+      deployment_url:
+        description: "URL of the Vercel deployment."
+        value: ${{ jobs.build.outputs.deployment_url }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      deployment_url: ${{ steps.vercel-deploy.outputs.deployment_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        if: inputs.package-manager == 'pnpm'
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ${{ inputs.node-version-file }}
+          cache: ${{ inputs.package-manager }}
+
+      - name: Configure private registry npm auth
+        if: inputs.private-npm-registry != ''
+        uses: sketch7/npm-auth-action@v1
+        with:
+          registry: ${{ inputs.private-npm-registry }}
+          token: ${{ secrets.private-npm-auth-token }}
+          scope: ${{ inputs.private-npm-scope }}
+
+      - name: Print environment versions
+        run: |
+          NODE_V=$(node --version)
+          NPM_V=$(npm -v)
+          echo "::notice::node version: $NODE_V / npm version: $NPM_V"
+
+      - name: Restore dependencies
+        run: |
+          if [[ "${{ inputs.package-manager }}" == "pnpm" ]]; then
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Lint
+        if: inputs.lint-command != ''
+        run: ${{ inputs.lint-command }}
+
+      - name: Build
+        run: ${{ inputs.build-command }}
+
+      - name: Prepare Vercel output
+        if: inputs.deploy
+        run: |
+          mkdir -p .vercel/output
+          echo '{"version":3}' > .vercel/output/config.json
+          cp -r ${{ inputs.output-dir }} .vercel/output/static
+
+      - name: Deploy to Vercel
+        if: inputs.deploy
+        id: vercel-deploy
+        env:
+          VERCEL_ORG_ID: ${{ secrets.vercel-org-id }}
+          VERCEL_PROJECT_ID: ${{ secrets.vercel-project-id }}
+        run: |
+          DEPLOY_OUTPUT=$(npx vercel deploy --prebuilt --prod --token=${{ secrets.vercel-token }} --no-color)
+          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep '^https://' | tail -1)
+          echo "deployment_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "::notice::Storybook deployed to $DEPLOY_URL"
