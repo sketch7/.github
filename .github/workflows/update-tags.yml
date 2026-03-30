@@ -139,7 +139,7 @@ jobs:
               if (files.length) meta.push(`**Changed files:** ${files.map(f => `\`${f}\``).join(', ')}`)
             }
 
-            await core.summary.addHeading('Tag Update Summary', 2).addRaw(meta.join('  \n') + '\n\n')
+            await core.summary.addHeading('Tag Update Summary', 2).addList(meta)
 
             if (!hasUpdates) {
               await core.summary.addRaw('ℹ️ No workflow files changed that map to a tag — nothing to update.\n').write()
