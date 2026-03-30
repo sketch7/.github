@@ -33,6 +33,8 @@ env:
 permissions:
   contents: read
   packages: read
+  checks: write
+  actions: read
 
 jobs:
   checks:
@@ -77,4 +79,13 @@ jobs:
         run: dotnet build ${SLN:+"$SLN"} --no-restore
 
       - name: Test
-        run: dotnet test ${SLN:+"$SLN"} --no-build
+        run: dotnet test ${SLN:+"$SLN"} --no-build --logger trx --results-directory ./TestResults/
+
+      - name: Test Report
+        uses: dorny/test-reporter@v3
+        if: ${{ !cancelled() }}
+        with:
+          name: .NET Tests
+          path: "**/TestResults/*.trx"
+          reporter: dotnet-trx
+          fail-on-error: true
