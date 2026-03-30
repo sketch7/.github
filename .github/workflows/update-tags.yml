@@ -1,0 +1,111 @@
+# Automatically moves floating workflow tags when files change on main.
+# Also supports manual multi-tag updates via workflow_dispatch.
+name: update tags
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/*.yml"]
+  workflow_dispatch:
+    inputs:
+      node-libs-v1:
+        description: "node-libs-v1 (deprecated)"
+        type: boolean
+        default: false
+      node-libs-v2:
+        description: "node-libs-v2"
+        type: boolean
+        default: false
+      dotnet-libs-v1:
+        description: "dotnet-libs-v1 (deprecated)"
+        type: boolean
+        default: false
+      dotnet-libs-v2:
+        description: "dotnet-libs-v2"
+        type: boolean
+        default: false
+      release-v1:
+        description: "release-v1"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  update-tags:
+    name: Update Tags
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Get changed files
+        id: changed-files
+        if: github.event_name == 'push'
+        run: |
+          files=$(git diff --name-only HEAD^1 HEAD | tr '\n' ',')
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve tags to update
+        id: resolve-tags
+        uses: actions/github-script@v8
+        env:
+          CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
+          INPUT_NODE_LIBS_V1: ${{ inputs.node-libs-v1 }}
+          INPUT_NODE_LIBS_V2: ${{ inputs.node-libs-v2 }}
+          INPUT_DOTNET_LIBS_V1: ${{ inputs.dotnet-libs-v1 }}
+          INPUT_DOTNET_LIBS_V2: ${{ inputs.dotnet-libs-v2 }}
+          INPUT_RELEASE_V1: ${{ inputs.release-v1 }}
+        with:
+          script: |
+            const TAG_MAP = {
+              'node-libs-v1':   ['node-lib.yml'],
+              'node-libs-v2':   ['node-ci.yml', 'node-publish.yml'],
+              'dotnet-libs-v1': ['dotnet-package.yml'],
+              'dotnet-libs-v2': ['dotnet-ci.yml', 'dotnet-publish.yml'],
+              'release-v1':     ['prepare-release.yml', 'create-release.yml', 'node-bump-main.yml'],
+            }
+
+            let tags = []
+
+            if (context.eventName === 'push') {
+              const changedFiles = process.env.CHANGED_FILES.split(',').map(f => f.trim().split('/').pop())
+              core.info(`Changed workflow files: ${changedFiles.join(', ')}`)
+              for (const [tag, files] of Object.entries(TAG_MAP)) {
+                if (files.some(f => changedFiles.includes(f))) tags.push(tag)
+              }
+            } else {
+              const inputMap = {
+                'node-libs-v1':   process.env.INPUT_NODE_LIBS_V1   === 'true',
+                'node-libs-v2':   process.env.INPUT_NODE_LIBS_V2   === 'true',
+                'dotnet-libs-v1': process.env.INPUT_DOTNET_LIBS_V1 === 'true',
+                'dotnet-libs-v2': process.env.INPUT_DOTNET_LIBS_V2 === 'true',
+                'release-v1':     process.env.INPUT_RELEASE_V1     === 'true',
+              }
+              tags = Object.entries(inputMap).filter(([, v]) => v).map(([k]) => k)
+            }
+
+            core.info(tags.length ? `Tags to update: ${tags.join(', ')}` : 'No tags to update')
+            core.setOutput('tags', tags.join(','))
+            core.setOutput('has-updates', tags.length > 0 ? 'true' : 'false')
+
+      - name: Update tags
+        if: steps.resolve-tags.outputs.has-updates == 'true'
+        env:
+          TAGS: ${{ steps.resolve-tags.outputs.tags }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          IFS=',' read -ra TAG_LIST <<< "$TAGS"
+          for tag in "${TAG_LIST[@]}"; do
+            echo "Moving tag: $tag → $(git rev-parse --short HEAD)"
+            git tag -f "$tag"
+            git push origin "$tag" --force
+          done
+
+      - name: No updates
+        if: steps.resolve-tags.outputs.has-updates != 'true'
+        run: echo "No workflow files changed that map to a tag — nothing to update."
