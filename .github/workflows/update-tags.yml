@@ -59,6 +59,7 @@ jobs:
           INPUT_DOTNET_LIBS_V1: ${{ inputs.dotnet-libs-v1 }}
           INPUT_DOTNET_LIBS_V2: ${{ inputs.dotnet-libs-v2 }}
           INPUT_RELEASE_V1: ${{ inputs.release-v1 }}
+          COMMIT_SHA: ${{ github.sha }}
         with:
           script: |
             const TAG_MAP = {
@@ -109,3 +110,51 @@ jobs:
       - name: No updates
         if: steps.resolve-tags.outputs.has-updates != 'true'
         run: echo "No workflow files changed that map to a tag — nothing to update."
+
+      - name: Write summary
+        if: always()
+        uses: actions/github-script@v8
+        env:
+          TAGS: ${{ steps.resolve-tags.outputs.tags }}
+          HAS_UPDATES: ${{ steps.resolve-tags.outputs.has-updates }}
+          UPDATE_OUTCOME: ${{ steps.update-tags.outcome }}
+          CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
+          COMMIT_SHA: ${{ github.sha }}
+        with:
+          script: |
+            const tags = process.env.TAGS ? process.env.TAGS.split(',').filter(Boolean) : []
+            const hasUpdates = process.env.HAS_UPDATES === 'true'
+            const outcome = process.env.UPDATE_OUTCOME  // 'success', 'failure', 'skipped'
+            const isDispatch = context.eventName === 'workflow_dispatch'
+            const ref = context.ref.replace('refs/heads/', '')
+            const sha = process.env.COMMIT_SHA.slice(0, 7)
+            const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`
+
+            const meta = [
+              `**Trigger:** ${isDispatch ? 'manual dispatch' : `push to \`${ref}\``}`,
+              `**Commit:** [\`${sha}\`](${repoUrl}/commit/${process.env.COMMIT_SHA})`,
+            ]
+            if (!isDispatch && process.env.CHANGED_FILES) {
+              const files = process.env.CHANGED_FILES.split(',').map(f => f.trim().split('/').pop()).filter(Boolean)
+              if (files.length) meta.push(`**Changed files:** ${files.map(f => `\`${f}\``).join(', ')}`)
+            }
+
+            await core.summary.addHeading('Tag Update Summary', 2).addRaw(meta.join('  \n') + '\n\n')
+
+            if (!hasUpdates) {
+              await core.summary.addRaw('ℹ️ No workflow files changed that map to a tag — nothing to update.\n').write()
+              return
+            }
+
+            const statusIcon = outcome === 'success' ? '✅' : outcome === 'failure' ? '❌' : '⏭️'
+            const statusText = outcome === 'success' ? 'Updated' : outcome === 'failure' ? 'Failed' : 'Skipped'
+            await core.summary
+              .addTable([
+                [{ data: 'Tag', header: true }, { data: 'Commit', header: true }, { data: 'Status', header: true }],
+                ...tags.map(tag => [
+                  `\`${tag}\``,
+                  `[\`${sha}\`](${repoUrl}/commit/${process.env.COMMIT_SHA})`,
+                  `${statusIcon} ${statusText}`,
+                ]),
+              ])
+              .write()
