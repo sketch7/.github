@@ -4,6 +4,10 @@ Reusable GitHub Actions workflows for Node and .NET packages. Provides separate,
 
 ## Tags
 
+[![update tags](https://github.com/sketch7/.github/actions/workflows/update-tags.yml/badge.svg)](https://github.com/sketch7/.github/actions/workflows/update-tags.yml)
+
+Tags are updated automatically on push to `main` when workflow files change. Use [workflow_dispatch](https://github.com/sketch7/.github/actions/workflows/update-tags.yml) to manually update multiple tags at once.
+
 | Tag              | Workflows                                                         |
 | ---------------- | ----------------------------------------------------------------- |
 | `node-libs-v1`   | `node-lib.yml` (deprecated — use v2 split workflows)              |
@@ -13,7 +17,7 @@ Reusable GitHub Actions workflows for Node and .NET packages. Provides separate,
 | `release-v1`     | `prepare-release.yml`, `create-release.yml`, `node-bump-main.yml` |
 
 ```bash
-# move tag (shorthand)
+# manual fallback — move a single tag
 TAG=<TAG> && git tag -f $TAG && git push origin $TAG -f
 ```
 
