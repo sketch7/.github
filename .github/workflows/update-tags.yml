@@ -131,12 +131,12 @@ jobs:
             const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`
 
             const meta = [
-              `**Trigger:** ${isDispatch ? 'manual dispatch' : `push to \`${ref}\``}`,
-              `**Commit:** [\`${sha}\`](${repoUrl}/commit/${process.env.COMMIT_SHA})`,
+              `<strong>Trigger:</strong> ${isDispatch ? 'manual dispatch' : `push to <code>${ref}</code>`}`,
+              `<strong>Commit:</strong> <a href="${repoUrl}/commit/${process.env.COMMIT_SHA}"><code>${sha}</code></a>`,
             ]
             if (!isDispatch && process.env.CHANGED_FILES) {
               const files = process.env.CHANGED_FILES.split(',').map(f => f.trim().split('/').pop()).filter(Boolean)
-              if (files.length) meta.push(`**Changed files:** ${files.map(f => `\`${f}\``).join(', ')}`)
+              if (files.length) meta.push(`<strong>Changed files:</strong> ${files.map(f => `<code>${f}</code>`).join(', ')}`)
             }
 
             await core.summary.addHeading('Tag Update Summary', 2).addList(meta)
@@ -152,9 +152,9 @@ jobs:
               .addTable([
                 [{ data: 'Tag', header: true }, { data: 'Commit', header: true }, { data: 'Status', header: true }],
                 ...tags.map(tag => [
-                  `\`${tag}\``,
-                  `[\`${sha}\`](${repoUrl}/commit/${process.env.COMMIT_SHA})`,
-                  `${statusIcon} ${statusText}`,
+                  { data: `<code>${tag}</code>`, header: false },
+                  { data: `<a href="${repoUrl}/commit/${process.env.COMMIT_SHA}"><code>${sha}</code></a>`, header: false },
+                  { data: `${statusIcon} ${statusText}`, header: false },
                 ]),
               ])
               .write()
