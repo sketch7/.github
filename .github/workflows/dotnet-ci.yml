@@ -12,7 +12,7 @@ on:
         description: "Solution or project file to build. Auto-discovered when omitted."
         required: false
         type: string
-      dotnet-configuration:
+      dotnet-cfg:
         description: "Build configuration e.g. 'Release', 'Debug'."
         required: false
         type: string
@@ -79,14 +79,14 @@ jobs:
           echo "::notice::resolved solution-file: ${SLN:-<empty>}"
 
       - name: Restore dependencies
-        run: dotnet restore ${SLN:+"$SLN"} /p:Configuration=${{ inputs.dotnet-configuration }}
+        run: dotnet restore ${SLN:+"$SLN"} /p:Configuration=${{ inputs.dotnet-cfg }}
 
       - name: Build
-        run: dotnet build ${SLN:+"$SLN"} -c ${{ inputs.dotnet-configuration }} --no-restore
+        run: dotnet build ${SLN:+"$SLN"} -c ${{ inputs.dotnet-cfg }} --no-restore
 
       - name: Test
         id: test
-        run: dotnet test ${SLN:+"$SLN"} -c ${{ inputs.dotnet-configuration }} --no-build --logger trx --results-directory ./TestResults/
+        run: dotnet test ${SLN:+"$SLN"} -c ${{ inputs.dotnet-cfg }} --no-build --logger trx --results-directory ./TestResults/
 
       - name: Test Report
         uses: dorny/test-reporter@v3

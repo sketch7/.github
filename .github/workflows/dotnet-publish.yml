@@ -25,7 +25,7 @@ on:
         description: "Env var prefix for NuGet credentials (must match NuGet.Config %{PREFIX}_USERNAME% / %{PREFIX}_TOKEN%). When set, configures credentials."
         required: false
         type: string
-      dotnet-configuration:
+      dotnet-cfg:
         description: "Build configuration e.g. 'Release', 'Debug'."
         required: false
         type: string
@@ -127,19 +127,19 @@ jobs:
           echo "::notice::resolved solution-file: ${SLN:-<empty>}"
 
       - name: Restore dependencies
-        run: dotnet restore ${SLN:+"$SLN"} /p:Configuration=${{ inputs.dotnet-configuration }}
+        run: dotnet restore ${SLN:+"$SLN"} /p:Configuration=${{ inputs.dotnet-cfg }}
 
       - name: Build
         run: |
           dotnet build ${SLN:+"$SLN"} \
-            -c ${{ inputs.dotnet-configuration }} --no-restore \
+            -c ${{ inputs.dotnet-cfg }} --no-restore \
             /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
 
       - name: Pack
         run: |
           dotnet pack ${SLN:+"$SLN"} \
             -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION \
-            -o ./artifacts -c ${{ inputs.dotnet-configuration }} \
+            -o ./artifacts -c ${{ inputs.dotnet-cfg }} \
             --include-symbols -p:SymbolPackageFormat=snupkg \
             --no-build --no-restore
 
