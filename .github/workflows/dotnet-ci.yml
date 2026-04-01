@@ -90,7 +90,7 @@ jobs:
 
       - name: Test Report
         uses: dorny/test-reporter@v3
-        if: ${{ !cancelled() && steps.test.conclusion != '' }}
+        if: ${{ !cancelled() && steps.test.conclusion != '' && hashFiles('**/TestResults/*.trx') != '' }}
         with:
           name: .NET Tests
           path: "**/TestResults/*.trx"
