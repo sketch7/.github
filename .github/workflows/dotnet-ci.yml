@@ -85,11 +85,12 @@ jobs:
         run: dotnet build ${SLN:+"$SLN"} -c ${{ inputs.dotnet-configuration }} --no-restore
 
       - name: Test
+        id: test
         run: dotnet test ${SLN:+"$SLN"} -c ${{ inputs.dotnet-configuration }} --no-build --logger trx --results-directory ./TestResults/
 
       - name: Test Report
         uses: dorny/test-reporter@v3
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.test.conclusion != '' }}
         with:
           name: .NET Tests
           path: "**/TestResults/*.trx"
