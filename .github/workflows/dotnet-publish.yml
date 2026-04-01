@@ -25,6 +25,11 @@ on:
         description: "Env var prefix for NuGet credentials (must match NuGet.Config %{PREFIX}_USERNAME% / %{PREFIX}_TOKEN%). When set, configures credentials."
         required: false
         type: string
+      dotnet-configuration:
+        description: "Build configuration e.g. 'Release', 'Debug'."
+        required: false
+        type: string
+        default: "Release"
       preid-branches:
         description: "Branches to use for preid versioning e.g. 'main:rc,master:rc,develop:dev,vnext:next'. Uses version-builder-action default when omitted."
         required: false
@@ -122,19 +127,19 @@ jobs:
           echo "::notice::resolved solution-file: ${SLN:-<empty>}"
 
       - name: Restore dependencies
-        run: dotnet restore ${SLN:+"$SLN"}
+        run: dotnet restore ${SLN:+"$SLN"} /p:Configuration=${{ inputs.dotnet-configuration }}
 
       - name: Build
         run: |
           dotnet build ${SLN:+"$SLN"} \
-            -c Release --no-restore \
+            -c ${{ inputs.dotnet-configuration }} --no-restore \
             /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
 
       - name: Pack
         run: |
           dotnet pack ${SLN:+"$SLN"} \
             -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION \
-            -o ./artifacts -c Release \
+            -o ./artifacts -c ${{ inputs.dotnet-configuration }} \
             --include-symbols -p:SymbolPackageFormat=snupkg \
             --no-build --no-restore
 
