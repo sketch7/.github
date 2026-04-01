@@ -62,8 +62,8 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
 
 permissions:
   contents: write

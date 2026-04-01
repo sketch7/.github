@@ -17,8 +17,8 @@ on:
         required: false
         type: string
     secrets:
-      private-nuget-username:
-        description: "Username for private NuGet registry. Defaults to github.actor when omitted."
+      nuget-auth-token:
+        description: "Auth token for NuGet source (also used for private NuGet restore credentials when private-nuget-env-prefix is set)."
         required: false
       private-nuget-auth-token:
         description: "Auth token for private NuGet registry."
@@ -29,6 +29,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
 
 permissions:
   contents: read
@@ -55,7 +56,7 @@ jobs:
         if: inputs.private-nuget-env-prefix != ''
         run: |
           echo "${{ inputs.private-nuget-env-prefix }}_USERNAME=${{ secrets.private-nuget-username || github.actor }}" >> $GITHUB_ENV
-          echo "${{ inputs.private-nuget-env-prefix }}_TOKEN=${{ secrets.private-nuget-auth-token }}" >> $GITHUB_ENV
+          echo "${{ inputs.private-nuget-env-prefix }}_TOKEN=$NUGET_AUTH_TOKEN" >> $GITHUB_ENV
 
       - name: Print environment versions
         run: |
