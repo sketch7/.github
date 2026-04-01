@@ -25,6 +25,11 @@ on:
         description: "Env var prefix for NuGet credentials (must match NuGet.Config %{PREFIX}_USERNAME% / %{PREFIX}_TOKEN%). When set, configures credentials."
         required: false
         type: string
+      dotnet-cfg:
+        description: "Build configuration e.g. 'Release', 'Debug'."
+        required: false
+        type: string
+        default: "Release"
       preid-branches:
         description: "Branches to use for preid versioning e.g. 'main:rc,master:rc,develop:dev,vnext:next'. Uses version-builder-action default when omitted."
         required: false
@@ -62,8 +67,8 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  NUGET_AUTH_TOKEN: ${{ secrets.nuget-auth-token || secrets.GITHUB_TOKEN }}
 
 permissions:
   contents: write
@@ -122,19 +127,19 @@ jobs:
           echo "::notice::resolved solution-file: ${SLN:-<empty>}"
 
       - name: Restore dependencies
-        run: dotnet restore ${SLN:+"$SLN"}
+        run: dotnet restore ${SLN:+"$SLN"} /p:Configuration=${{ inputs.dotnet-cfg }}
 
       - name: Build
         run: |
           dotnet build ${SLN:+"$SLN"} \
-            -c Release --no-restore \
+            -c ${{ inputs.dotnet-cfg }} --no-restore \
             /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
 
       - name: Pack
         run: |
           dotnet pack ${SLN:+"$SLN"} \
             -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION \
-            -o ./artifacts -c Release \
+            -o ./artifacts -c ${{ inputs.dotnet-cfg }} \
             --include-symbols -p:SymbolPackageFormat=snupkg \
             --no-build --no-restore
 
