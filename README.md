@@ -134,18 +134,19 @@ Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish.
 
 **Inputs**
 
-| Input                      | Default  | Description                                                                                                                                    |
-| -------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dotnet-version`           | `10.0.x` | .NET SDK version                                                                                                                               |
-| `solution-file`            | —        | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                 |
-| `private-nuget-env-prefix` | —        | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
+| Input                      | Default   | Description                                                                                                                                    |
+| -------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dotnet-version`           | `10.0.x`  | .NET SDK version                                                                                                                               |
+| `dotnet-configuration`     | `Release` | Build configuration e.g. `Release`, `Debug`.                                                                                                   |
+| `solution-file`            | —         | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                 |
+| `private-nuget-env-prefix` | —         | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
 
 **Secrets**
 
-| Secret                     | Description                                                      |
-| -------------------------- | ---------------------------------------------------------------- |
-| `private-nuget-username`   | Username for private NuGet registry. Defaults to `github.actor`. |
-| `private-nuget-auth-token` | Auth token for private NuGet registry.                           |
+| Secret                   | Description                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `nuget-auth-token`       | Auth token for the private NuGet registry. Also used as `{PREFIX}_TOKEN` for private restore credentials. Defaults to `GITHUB_TOKEN`. |
+| `private-nuget-username` | Username for private NuGet registry. Defaults to `github.actor`.                                                                      |
 
 ---
 
@@ -158,6 +159,7 @@ Resolves the version via `version-builder-action`, builds, packs, and pushes NuG
 | Input                      | Default                               | Description                                                                                                                                    |
 | -------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dotnet-version`           | `10.0.x`                              | .NET SDK version                                                                                                                               |
+| `dotnet-configuration`     | `Release`                             | Build configuration e.g. `Release`, `Debug`.                                                                                                   |
 | `source-url`               | `https://api.nuget.org/v3/index.json` | NuGet source URL passed to `setup-dotnet` for credential configuration.                                                                        |
 | `source-name`              | —                                     | NuGet source name (from `NuGet.Config`) used for `dotnet nuget push -s`. Falls back to `source-url` when omitted.                              |
 | `solution-file`            | —                                     | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                 |

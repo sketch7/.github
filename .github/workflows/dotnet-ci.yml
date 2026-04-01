@@ -25,8 +25,8 @@ on:
       nuget-auth-token:
         description: "Auth token for NuGet source (also used for private NuGet restore credentials when private-nuget-env-prefix is set)."
         required: false
-      private-nuget-auth-token:
-        description: "Auth token for private NuGet registry."
+      private-nuget-username:
+        description: "Username for private NuGet registry. Defaults to github.actor when omitted."
         required: false
 
 env:
