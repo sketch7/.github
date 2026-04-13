@@ -138,6 +138,7 @@ Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish.
 | -------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dotnet-version`           | `10.0.x`  | .NET SDK version                                                                                                                               |
 | `dotnet-cfg`               | `Release` | Build configuration e.g. `Release`, `Debug`.                                                                                                   |
+| `project-path`             | `./`      | Path to the project or mono repo sub-folder e.g. `./my-service`. Prepended to `solution-file` when resolving.                                  |
 | `solution-file`            | —         | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                 |
 | `private-nuget-env-prefix` | —         | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
 

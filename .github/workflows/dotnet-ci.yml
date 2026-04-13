@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: "Release"
+      project-path:
+        description: "Path to the project or mono repo sub-folder e.g. './my-service'. Prepended to solution-file when resolving."
+        required: false
+        type: string
+        default: "./"
       private-nuget-env-prefix:
         description: "Env var prefix for NuGet credentials (must match NuGet.Config %{PREFIX}_USERNAME% / %{PREFIX}_TOKEN%). When set, configures credentials."
         required: false
@@ -70,23 +75,31 @@ jobs:
 
       - name: Resolve solution file
         run: |
+          PROJECT_PATH="${{ inputs.project-path }}"
+          PROJECT_PATH="${PROJECT_PATH%/}"
           SLN="${{ inputs.solution-file }}"
-          if [[ -z "$SLN" && -f "package.json" ]]; then
-            SLN="$(jq -r '.dotnetBuildSln // empty' package.json 2>/dev/null)"
+          if [[ -z "$SLN" && -f "${PROJECT_PATH}/package.json" ]]; then
+            SLN="$(jq -r '.dotnetBuildSln // empty' "${PROJECT_PATH}/package.json" 2>/dev/null)"
+          fi
+
+          if [[ -n "$SLN" ]]; then
+            SLN="${PROJECT_PATH}/${SLN}"
+          else
+            SLN="$PROJECT_PATH"
           fi
 
           echo "SLN=$SLN" >> "$GITHUB_ENV"
           echo "::notice::resolved solution-file: ${SLN:-<empty>}"
 
       - name: Restore dependencies
-        run: dotnet restore ${SLN:+"$SLN"} /p:Configuration=${{ inputs.dotnet-cfg }}
+        run: dotnet restore "$SLN" /p:Configuration=${{ inputs.dotnet-cfg }}
 
       - name: Build
-        run: dotnet build ${SLN:+"$SLN"} -c ${{ inputs.dotnet-cfg }} --no-restore
+        run: dotnet build "$SLN" -c ${{ inputs.dotnet-cfg }} --no-restore
 
       - name: Test
         id: test
-        run: dotnet test ${SLN:+"$SLN"} -c ${{ inputs.dotnet-cfg }} --no-build --logger trx --results-directory ./TestResults/
+        run: dotnet test "$SLN" -c ${{ inputs.dotnet-cfg }} --no-build --logger trx --results-directory ./TestResults/
 
       - name: Test Report
         uses: dorny/test-reporter@v3
