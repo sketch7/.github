@@ -83,7 +83,10 @@ jobs:
           fi
 
           if [[ -n "$SLN" ]]; then
-            SLN="${PROJECT_PATH}/${SLN}"
+            SLN="${SLN#./}"  # strip leading ./
+            if [[ "$PROJECT_PATH" != "." && "$PROJECT_PATH" != "" && "$SLN" != "$PROJECT_PATH/"* ]]; then
+              SLN="${PROJECT_PATH}/${SLN}"
+            fi
           else
             SLN="$PROJECT_PATH"
           fi
