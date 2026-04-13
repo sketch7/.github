@@ -74,7 +74,7 @@ jobs:
           echo "::notice::dotnet version: $DOTNET_V"
 
       - name: Resolve solution file
-        uses: sketch7/.github/.github/actions/resolve-dotnet-sln@dotnet-libs-v2
+        uses: sketch7/.github/.github/actions/resolve-dotnet-sln@feature/dotnet-ci-projpath #@dotnet-libs-v2
         with:
           project-path: ${{ inputs.project-path }}
           solution-file: ${{ inputs.solution-file }}
