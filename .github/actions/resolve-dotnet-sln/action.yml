@@ -1,0 +1,50 @@
+name: Resolve .NET solution file
+description: >
+  Resolves the effective path for dotnet commands from project-path and
+  solution-file inputs. Sets the SLN environment variable for subsequent steps.
+
+inputs:
+  project-path:
+    description: "Path to the project or mono repo sub-folder e.g. './my-service'. Prepended to solution-file when resolving."
+    required: false
+    default: "./"
+  solution-file:
+    description: "Solution or project file. When omitted, auto-resolved from package.json#dotnetBuildSln."
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve
+      uses: actions/github-script@v9
+      with:
+        script: |
+          const fs = require("fs");
+          const path = require("path");
+
+          const rawProjectPath = "${{ inputs.project-path }}";
+          const projectPath = rawProjectPath.replace(/\/+$/, "") || ".";
+          let sln = "${{ inputs.solution-file }}";
+
+          if (!sln) {
+            const pkgJsonPath = path.join(projectPath, "package.json");
+            if (fs.existsSync(pkgJsonPath)) {
+              try {
+                const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+                sln = pkg.dotnetBuildSln || "";
+              } catch { /* ignore malformed package.json */ }
+            }
+          }
+
+          if (sln) {
+            sln = sln.replace(/^\.\//, ""); // strip leading ./
+            if (projectPath !== "." && projectPath !== "" && !sln.startsWith(projectPath + "/")) {
+              sln = `${projectPath}/${sln}`;
+            }
+          } else {
+            sln = projectPath;
+          }
+
+          core.notice(`resolved solution-file: ${sln || "<empty>"}`);
+          core.exportVariable("SLN", sln);
