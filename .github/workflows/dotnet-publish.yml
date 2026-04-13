@@ -21,6 +21,11 @@ on:
         description: "Solution or project file to build. Auto-discovered when omitted."
         required: false
         type: string
+      project-path:
+        description: "Path to the project or mono repo sub-folder e.g. './my-service'. Prepended to solution-file when resolving."
+        required: false
+        type: string
+        default: "./"
       private-nuget-env-prefix:
         description: "Env var prefix for NuGet credentials (must match NuGet.Config %{PREFIX}_USERNAME% / %{PREFIX}_TOKEN%). When set, configures credentials."
         required: false
@@ -117,27 +122,23 @@ jobs:
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.fileVersion }}" >> $GITHUB_ENV
 
       - name: Resolve solution file
-        run: |
-          SLN="${{ inputs.solution-file }}"
-          if [[ -z "$SLN" && -f "package.json" ]]; then
-            SLN="$(jq -r '.dotnetBuildSln // empty' package.json 2>/dev/null)"
-          fi
-
-          echo "SLN=$SLN" >> "$GITHUB_ENV"
-          echo "::notice::resolved solution-file: ${SLN:-<empty>}"
+        uses: sketch7/.github/.github/actions/resolve-dotnet-sln@dotnet-libs-v2
+        with:
+          project-path: ${{ inputs.project-path }}
+          solution-file: ${{ inputs.solution-file }}
 
       - name: Restore dependencies
-        run: dotnet restore ${SLN:+"$SLN"} /p:Configuration=${{ inputs.dotnet-cfg }}
+        run: dotnet restore "$SLN" /p:Configuration=${{ inputs.dotnet-cfg }}
 
       - name: Build
         run: |
-          dotnet build ${SLN:+"$SLN"} \
+          dotnet build "$SLN" \
             -c ${{ inputs.dotnet-cfg }} --no-restore \
             /p:Version=$VERSION /p:AssemblyVersion=$ASSEMBLY_VERSION
 
       - name: Pack
         run: |
-          dotnet pack ${SLN:+"$SLN"} \
+          dotnet pack "$SLN" \
             -p:PackageVersion=$VERSION -p:AssemblyVersion=$ASSEMBLY_VERSION \
             -o ./artifacts -c ${{ inputs.dotnet-cfg }} \
             --include-symbols -p:SymbolPackageFormat=snupkg \
