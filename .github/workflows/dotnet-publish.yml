@@ -122,10 +122,37 @@ jobs:
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.fileVersion }}" >> $GITHUB_ENV
 
       - name: Resolve solution file
-        uses: ./.github/actions/resolve-dotnet-sln
+        uses: actions/github-script@v9
         with:
-          project-path: ${{ inputs.project-path }}
-          solution-file: ${{ inputs.solution-file }}
+          script: |
+            const fs = require("fs");
+            const path = require("path");
+
+            const rawProjectPath = "${{ inputs.project-path }}";
+            const projectPath = rawProjectPath.replace(/\/+$/, "") || ".";
+            let sln = "${{ inputs.solution-file }}";
+
+            if (!sln) {
+              const pkgJsonPath = path.join(projectPath, "package.json");
+              if (fs.existsSync(pkgJsonPath)) {
+                try {
+                  const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+                  sln = pkg.dotnetBuildSln || "";
+                } catch { /* ignore malformed package.json */ }
+              }
+            }
+
+            if (sln) {
+              sln = sln.replace(/^\.\//,  ""); // strip leading ./
+              if (projectPath !== "." && projectPath !== "" && !sln.startsWith(projectPath + "/")) {
+                sln = `${projectPath}/${sln}`;
+              }
+            } else {
+              sln = projectPath;
+            }
+
+            core.notice(`resolved solution-file: ${sln || "<empty>"}`);
+            core.exportVariable("SLN", sln);
 
       - name: Restore dependencies
         run: dotnet restore "$SLN" /p:Configuration=${{ inputs.dotnet-cfg }}
