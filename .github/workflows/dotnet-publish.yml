@@ -122,25 +122,10 @@ jobs:
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.fileVersion }}" >> $GITHUB_ENV
 
       - name: Resolve solution file
-        run: |
-          PROJECT_PATH="${{ inputs.project-path }}"
-          PROJECT_PATH="${PROJECT_PATH%/}"
-          SLN="${{ inputs.solution-file }}"
-          if [[ -z "$SLN" && -f "${PROJECT_PATH}/package.json" ]]; then
-            SLN="$(jq -r '.dotnetBuildSln // empty' "${PROJECT_PATH}/package.json" 2>/dev/null)"
-          fi
-
-          if [[ -n "$SLN" ]]; then
-            SLN="${SLN#./}"  # strip leading ./
-            if [[ "$PROJECT_PATH" != "." && "$PROJECT_PATH" != "" && "$SLN" != "$PROJECT_PATH/"* ]]; then
-              SLN="${PROJECT_PATH}/${SLN}"
-            fi
-          else
-            SLN="$PROJECT_PATH"
-          fi
-
-          echo "SLN=$SLN" >> "$GITHUB_ENV"
-          echo "::notice::resolved solution-file: ${SLN:-<empty>}"
+        uses: ./.github/actions/resolve-dotnet-sln
+        with:
+          project-path: ${{ inputs.project-path }}
+          solution-file: ${{ inputs.solution-file }}
 
       - name: Restore dependencies
         run: dotnet restore "$SLN" /p:Configuration=${{ inputs.dotnet-cfg }}
