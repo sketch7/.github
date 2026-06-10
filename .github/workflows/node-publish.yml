@@ -14,7 +14,7 @@ on:
         type: string
         default: npm
       registry-url:
-        description: "NPM registry to publish to."
+        description: "NPM registry URL for setup-node authentication. Use for configuring the default registry that npm CLI accesses."
         required: false
         type: string
         default: "https://registry.npmjs.org"
@@ -133,7 +133,7 @@ jobs:
       - name: Restore dependencies
         run: |
           if [[ "${{ inputs.package-manager }}" == "pnpm" ]]; then
-            pnpm i
+            pnpm install --frozen-lockfile
           else
             npm ci
           fi
@@ -152,6 +152,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Pre-release
+        run: npm run pre-release --if-present
 
       - name: Publish
         id: publish
