@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.token || github.token }}
@@ -42,7 +42,7 @@ jobs:
 
       - name: Ensure target branch
         id: ensure-target-branch
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.token || github.token }}
           script: |
@@ -94,7 +94,7 @@ jobs:
             core.setOutput('created', created)
 
       - name: Sync release branch with target branch when PR exists
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.token || github.token }}
           script: |
@@ -145,7 +145,7 @@ jobs:
             core.info(`No sync required. Comparison status: ${comparison.status}`)
 
       - name: Create or update release PR
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.token || github.token }}
           script: |

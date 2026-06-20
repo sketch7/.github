@@ -88,12 +88,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # required for accurate commit counting in version-builder-action
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         if: inputs.package-manager == 'pnpm'
 
       - name: Setup Node
@@ -140,7 +140,7 @@ jobs:
 
       - name: Replace version placeholder
         if: inputs.version-replace-glob != ''
-        uses: richardrigutins/replace-in-files@v2
+        uses: richardrigutins/replace-in-files@v3
         with:
           files: ${{ inputs.version-replace-glob }}
           search-text: ${{ inputs.version-replace }}
