@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
@@ -51,7 +51,7 @@ jobs:
 
       - name: Resolve tags to update
         id: resolve-tags
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
           INPUT_NODE_LIBS_V1: ${{ inputs.node-libs-v1 }}
@@ -113,7 +113,7 @@ jobs:
 
       - name: Write summary
         if: always()
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           TAGS: ${{ steps.resolve-tags.outputs.tags }}
           HAS_UPDATES: ${{ steps.resolve-tags.outputs.has-updates }}
