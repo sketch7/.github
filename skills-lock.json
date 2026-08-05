@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "arcane-ci-cd-workflows": {
+      "source": "sketch7/arcane.archives",
+      "sourceType": "github",
+      "skillPath": "skills/arcane-ci-cd-workflows/SKILL.md",
+      "computedHash": "c270d50b157ed95c8bdc6a5fca3ecb08639adb24bb9eba9e365024a134f1de89"
+    },
+    "arcane-conventional-commit": {
+      "source": "sketch7/arcane.archives",
+      "sourceType": "github",
+      "skillPath": "skills/arcane-conventional-commit/SKILL.md",
+      "computedHash": "8d806a0151c155345085179b053aa62bbfbd2d6781a5c7d5eab2200f89497c17"
+    },
+    "arcane-docs-style": {
+      "source": "sketch7/arcane.archives",
+      "sourceType": "github",
+      "skillPath": "skills/arcane-docs-style/SKILL.md",
+      "computedHash": "39a0cebb9dd2b3dbdab05414f394bbe224fc3747842ca038142c8acab7941244"
+    }
+  }
+}

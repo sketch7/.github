@@ -1,0 +1,55 @@
+# See http://help.github.com/ignore-files/ for more about ignoring files.
+
+# repo
+
+
+# compiled output
+dist
+tmp
+/out-tsc
+
+
+# Node
+node_modules
+npm-debug.log
+.nx/cache
+.nx/polygraph
+.nx/workspace-data
+.nx/self-healing
+.nx/migrate-runs
+.sass-cache/
+.eslintcache
+.angular
+
+# IDEs and editors
+.idea/
+.project
+.classpath
+*.launch
+.settings/
+.vs/
+
+
+# AI
+.cursor\rules\nx-rules.mdc
+.github\instructions\nx.instructions.md
+.worktrees/
+.claude/worktrees
+.claude/settings.local.json
+# Skills CLI derived/machine-local output (regenerate with: npx skills experimental_install)
+.claude/skills/
+agent/
+.superpowers
+
+
+# misc
+/connect.lock
+/coverage
+/libpeerconnection.log
+/typings
+
+
+# System Files
+.DS_Store
+Thumbs.db
+nul
