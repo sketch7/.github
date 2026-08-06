@@ -94,6 +94,7 @@ jobs:
             core.setOutput('has-updates', tags.length > 0 ? 'true' : 'false')
 
       - name: Update tags
+        id: update-tags
         if: steps.resolve-tags.outputs.has-updates == 'true'
         env:
           TAGS: ${{ steps.resolve-tags.outputs.tags }}
