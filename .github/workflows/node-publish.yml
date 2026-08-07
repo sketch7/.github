@@ -35,6 +35,11 @@ on:
         required: false
         type: boolean
         default: false
+      build-command:
+        description: "Command to run to build packages."
+        required: false
+        type: string
+        default: "npm run build"
       tag-tmpl:
         description: "Tag template used to check for existing version tags. Must match the value passed to create-release.yml. Use `{major}` as placeholder e.g. 'v{major}'."
         required: false
@@ -163,7 +168,7 @@ jobs:
         run: npm run pre-release-build --if-present
 
       - name: Build
-        run: npm run build
+        run: ${{ inputs.build-command }}
 
       - name: Pre-release
         run: npm run pre-release --if-present
