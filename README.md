@@ -198,8 +198,11 @@ flowchart TD
     CI["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
     CI2["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
 
+    CD_publish -->|"always"| CreateReleaseRc
+    CreateReleaseRc["CD: release job<br/>create-release.yml<br/>→ tag v2.1.0-rc.5<br/>→ GitHub Release (pre-release) ✨<br/>no floating tag, is-latest == false"]
+
     CD_stable["CD: publish job<br/>node-publish.yml<br/>→ publishes 2.1.0 --tag latest"]
-    CD_stable -->|"isPrerelease == false"| CreateRelease
+    CD_stable -->|"always"| CreateRelease
 
     CreateRelease["CD: release job<br/>create-release.yml<br/>→ tag v2.1.0<br/>→ float tag v2<br/>→ GitHub Release ✨<br/>outputs: is-latest"]
     CreateRelease -->|"is-latest == true"| BumpMain
@@ -211,13 +214,14 @@ flowchart TD
     CI3["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
 
     CD_lts["CD: publish job<br/>node-publish.yml<br/>→ publishes 1.5.3 --tag v1-lts"]
-    CD_lts -->|"isPrerelease == false"| CreateRelease2
+    CD_lts -->|"always"| CreateRelease2
 
     CreateRelease2["CD: release job<br/>create-release.yml<br/>→ tag v1.5.3<br/>→ float tag v1<br/>→ GitHub Release (non-latest) ✨<br/>is-latest == false → no bump"]
 
     style PrepareRelease fill:#bfdbfe,stroke:#60a5fa,color:#1e3a5f
     style CreateRelease fill:#bbf7d0,stroke:#4ade80,color:#14532d
     style CreateRelease2 fill:#bbf7d0,stroke:#4ade80,color:#14532d
+    style CreateReleaseRc fill:#bbf7d0,stroke:#4ade80,color:#14532d
     style BumpMain fill:#ddd6fe,stroke:#a78bfa,color:#2e1065
     style CD_publish fill:#fef08a,stroke:#facc15,color:#713f12
     style CD_stable fill:#fef08a,stroke:#facc15,color:#713f12
@@ -326,12 +330,11 @@ jobs:
   release:
     name: Release
     needs: publish
-    if: |
-      needs.publish.result == 'success' &&
-      !fromJSON(needs.publish.outputs.isPrerelease)
+    if: needs.publish.result == 'success'
     uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
     with:
       version: ${{ needs.publish.outputs.version }}
+      is-prerelease: ${{ fromJSON(needs.publish.outputs.isPrerelease) }}
 
   bump-main:
     name: Bump main
@@ -438,12 +441,11 @@ jobs:
   release:
     name: Release
     needs: publish
-    if: |
-      needs.publish.result == 'success' &&
-      !fromJSON(needs.publish.outputs.isPrerelease)
+    if: needs.publish.result == 'success'
     uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
     with:
       version: ${{ needs.publish.outputs.version }}
+      is-prerelease: ${{ fromJSON(needs.publish.outputs.isPrerelease) }}
 ```
 
 ---
