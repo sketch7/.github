@@ -2,17 +2,22 @@
 name: create release
 
 # Generic, language-agnostic release workflow.
-# Creates an exact git tag (e.g. v2.1.0), updates the floating major tag (e.g. v2),
-# and creates a GitHub Release with auto-generated notes.
-# Called by both node and dotnet publish workflows after a stable publish.
+# Creates an exact git tag (e.g. v2.1.0 or v2.1.0-rc.5) and a GitHub Release with auto-generated notes.
+# Stable versions also float the major tag (e.g. v2); pre-releases skip that and are marked --prerelease.
+# Called by both node and dotnet publish workflows after every publish (stable and pre-release).
 
 on:
   workflow_call:
     inputs:
       version:
-        description: "Stable version to release e.g. '2.1.0'."
+        description: "Version to release e.g. '2.1.0' or '2.1.0-rc.5' for a pre-release."
         required: true
         type: string
+      is-prerelease:
+        description: "Whether this version is a pre-release. Skips floating major-tag update and marks the GitHub Release as pre-release."
+        required: false
+        type: boolean
+        default: false
       tag-tmpl:
         description: "Tag template for git tags. Use `{major}` as placeholder e.g. 'v{major}' → 'v2' or '{major}.x' → '2.x'."
         required: false
@@ -20,7 +25,7 @@ on:
         default: "v{major}"
     outputs:
       is-latest:
-        description: "Whether this release is the latest (highest major version)."
+        description: "Whether this release is the latest (highest major version). Always 'false' for pre-releases."
         value: ${{ jobs.create-release.outputs.is-latest }}
 
 permissions:
@@ -67,7 +72,8 @@ jobs:
               })
               .filter(n => n !== null)
             const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
-            const isLatest = major >= highestExistingMajor
+            // pre-releases never float the major tag or become "latest"
+            const isLatest = '${{ inputs.is-prerelease }}' !== 'true' && major >= highestExistingMajor
 
             core.setOutput('exact-tag', exactTag)
             core.setOutput('floating-tag', floatingTag)
@@ -80,6 +86,7 @@ jobs:
           git push origin ${{ steps.meta.outputs.exact-tag }}
 
       - name: Update floating tag
+        if: inputs.is-prerelease != true
         run: |
           git tag -f ${{ steps.meta.outputs.floating-tag }}
           git push origin -f refs/tags/${{ steps.meta.outputs.floating-tag }}
@@ -88,6 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          LATEST_FLAG="--no-latest"
-          [[ "${{ steps.meta.outputs.is-latest }}" == "true" ]] && LATEST_FLAG="--latest"
-          gh release create "${{ steps.meta.outputs.exact-tag }}" --generate-notes $LATEST_FLAG
+          FLAGS="--no-latest"
+          [[ "${{ steps.meta.outputs.is-latest }}" == "true" ]] && FLAGS="--latest"
+          [[ "${{ inputs.is-prerelease }}" == "true" ]] && FLAGS="--prerelease"
+          gh release create "${{ steps.meta.outputs.exact-tag }}" --generate-notes $FLAGS

@@ -57,6 +57,8 @@ Resolves the version via `version-builder-action`, bumps `package.json`, install
 | `private-npm-scope`    | —                            | Scope for private registry                            |
 | `preid-branches`       | _(action default)_           | Branch → preid mapping e.g. `main:rc,develop:dev`     |
 | `force-preid`          | `false`                      | Force preid even if branch doesn't match              |
+| `tag-tmpl`             | `v{major}`                   | Tag template used to check for existing version tags; must match `create-release.yml`'s `tag-tmpl`. Passed through to `version-builder-action`. |
+| `on-version-conflict`  | `bump-patch`                       | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`).       |
 | `publish-command`      | `npm run release`            | Command used to publish                               |
 | `version-replace`      | `0.0.0-PLACEHOLDER`          | Placeholder string to replace in source               |
 | `version-replace-glob` | `src/version.ts`             | Glob of files to replace placeholder in; `""` to skip |
@@ -65,9 +67,9 @@ Resolves the version via `version-builder-action`, bumps `package.json`, install
 
 **Outputs**
 
-| Output         | Example                    | Description                   |
-| -------------- | -------------------------- | ----------------------------- |
-| `version`      | `2.1.0-rc.5`               | Full published version        |
+| Output         | Example                    | Description                                                       |
+| -------------- | -------------------------- | ------------------------------------------------------------------- |
+| `version`      | `2.1.0-rc.5`               | Full published version; patch is bumped if `on-version-conflict` resolved a tag collision |
 | `baseVersion`  | `2.1.0`                    | Version without preid         |
 | `isPrerelease` | `true`                     | Whether this is a pre-release |
 | `tag`          | `rc` / `latest` / `v1-lts` | NPM dist-tag used             |
@@ -168,6 +170,8 @@ Resolves the version via `version-builder-action`, builds, packs, and pushes NuG
 | `private-nuget-env-prefix` | —                                     | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
 | `preid-branches`           | _(action default)_                    | Branch → preid mapping e.g. `main:rc,develop:dev`                                                                                              |
 | `force-preid`              | `false`                               | Force preid even if branch doesn't match                                                                                                       |
+| `tag-tmpl`                 | `v{major}`                            | Tag template used to check for existing version tags; must match `create-release.yml`'s `tag-tmpl`. Passed through to `version-builder-action`. |
+| `on-version-conflict`      | `bump-patch`                                | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`). |
 
 **Secrets**
 
@@ -198,8 +202,11 @@ flowchart TD
     CI["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
     CI2["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
 
+    CD_publish -->|"always"| CreateReleaseRc
+    CreateReleaseRc["CD: release job<br/>create-release.yml<br/>→ tag v2.1.0-rc.5<br/>→ GitHub Release (pre-release) ✨<br/>no floating tag, is-latest == false"]
+
     CD_stable["CD: publish job<br/>node-publish.yml<br/>→ publishes 2.1.0 --tag latest"]
-    CD_stable -->|"isPrerelease == false"| CreateRelease
+    CD_stable -->|"always"| CreateRelease
 
     CreateRelease["CD: release job<br/>create-release.yml<br/>→ tag v2.1.0<br/>→ float tag v2<br/>→ GitHub Release ✨<br/>outputs: is-latest"]
     CreateRelease -->|"is-latest == true"| BumpMain
@@ -211,13 +218,14 @@ flowchart TD
     CI3["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
 
     CD_lts["CD: publish job<br/>node-publish.yml<br/>→ publishes 1.5.3 --tag v1-lts"]
-    CD_lts -->|"isPrerelease == false"| CreateRelease2
+    CD_lts -->|"always"| CreateRelease2
 
     CreateRelease2["CD: release job<br/>create-release.yml<br/>→ tag v1.5.3<br/>→ float tag v1<br/>→ GitHub Release (non-latest) ✨<br/>is-latest == false → no bump"]
 
     style PrepareRelease fill:#bfdbfe,stroke:#60a5fa,color:#1e3a5f
     style CreateRelease fill:#bbf7d0,stroke:#4ade80,color:#14532d
     style CreateRelease2 fill:#bbf7d0,stroke:#4ade80,color:#14532d
+    style CreateReleaseRc fill:#bbf7d0,stroke:#4ade80,color:#14532d
     style BumpMain fill:#ddd6fe,stroke:#a78bfa,color:#2e1065
     style CD_publish fill:#fef08a,stroke:#facc15,color:#713f12
     style CD_stable fill:#fef08a,stroke:#facc15,color:#713f12
@@ -326,12 +334,11 @@ jobs:
   release:
     name: Release
     needs: publish
-    if: |
-      needs.publish.result == 'success' &&
-      !fromJSON(needs.publish.outputs.isPrerelease)
+    if: needs.publish.result == 'success'
     uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
     with:
       version: ${{ needs.publish.outputs.version }}
+      is-prerelease: ${{ fromJSON(needs.publish.outputs.isPrerelease) }}
 
   bump-main:
     name: Bump main
@@ -438,12 +445,11 @@ jobs:
   release:
     name: Release
     needs: publish
-    if: |
-      needs.publish.result == 'success' &&
-      !fromJSON(needs.publish.outputs.isPrerelease)
+    if: needs.publish.result == 'success'
     uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
     with:
       version: ${{ needs.publish.outputs.version }}
+      is-prerelease: ${{ fromJSON(needs.publish.outputs.isPrerelease) }}
 ```
 
 ---
