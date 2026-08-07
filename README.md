@@ -57,6 +57,8 @@ Resolves the version via `version-builder-action`, bumps `package.json`, install
 | `private-npm-scope`    | —                            | Scope for private registry                            |
 | `preid-branches`       | _(action default)_           | Branch → preid mapping e.g. `main:rc,develop:dev`     |
 | `force-preid`          | `false`                      | Force preid even if branch doesn't match              |
+| `tag-tmpl`             | `v{major}`                   | Tag template used to check for existing version tags; must match `create-release.yml`'s `tag-tmpl`. Passed through to `version-builder-action`. |
+| `on-version-conflict`  | `bump-patch`                       | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`).       |
 | `publish-command`      | `npm run release`            | Command used to publish                               |
 | `version-replace`      | `0.0.0-PLACEHOLDER`          | Placeholder string to replace in source               |
 | `version-replace-glob` | `src/version.ts`             | Glob of files to replace placeholder in; `""` to skip |
@@ -65,9 +67,9 @@ Resolves the version via `version-builder-action`, bumps `package.json`, install
 
 **Outputs**
 
-| Output         | Example                    | Description                   |
-| -------------- | -------------------------- | ----------------------------- |
-| `version`      | `2.1.0-rc.5`               | Full published version        |
+| Output         | Example                    | Description                                                       |
+| -------------- | -------------------------- | ------------------------------------------------------------------- |
+| `version`      | `2.1.0-rc.5`               | Full published version; patch is bumped if `on-version-conflict` resolved a tag collision |
 | `baseVersion`  | `2.1.0`                    | Version without preid         |
 | `isPrerelease` | `true`                     | Whether this is a pre-release |
 | `tag`          | `rc` / `latest` / `v1-lts` | NPM dist-tag used             |
@@ -168,6 +170,8 @@ Resolves the version via `version-builder-action`, builds, packs, and pushes NuG
 | `private-nuget-env-prefix` | —                                     | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
 | `preid-branches`           | _(action default)_                    | Branch → preid mapping e.g. `main:rc,develop:dev`                                                                                              |
 | `force-preid`              | `false`                               | Force preid even if branch doesn't match                                                                                                       |
+| `tag-tmpl`                 | `v{major}`                            | Tag template used to check for existing version tags; must match `create-release.yml`'s `tag-tmpl`. Passed through to `version-builder-action`. |
+| `on-version-conflict`      | `bump-patch`                                | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`). |
 
 **Secrets**
 
