@@ -119,7 +119,7 @@ Creates the exact git tag (`v2.1.0`), force-updates the floating major tag (`v2`
 
 ### `node-bump-main.yml` · `@release-v1`
 
-After a stable release on the latest major, bumps the minor version in `package.json` on the default branch and opens a PR. Uses `npm version minor --no-git-tag-version` and commits with `[skip ci]` to avoid redundant CI runs on the bump branch and PR. Callers should guard with `create-release` output `is-latest == 'true'` so backport releases (e.g. `v1.x` while main is on `v2`) don't trigger a spurious bump.
+After a stable release on the latest major, bumps the minor version in `package.json` on the default branch and opens a PR. Uses `npm version minor --no-git-tag-version` and puts `[skip ci]` in the generated PR title so the merge commit skips duplicate push-triggered CI. The bump commit deliberately has no skip marker, allowing required pull-request checks to run; use squash or merge commits so the PR title is carried into the merge commit. This marker applies only to the automated bump PR, not the release PR. Callers should guard with `create-release` output `is-latest == 'true'` so backport releases (e.g. `v1.x` while main is on `v2`) don't trigger a spurious bump.
 
 **Inputs**
 

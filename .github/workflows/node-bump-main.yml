@@ -49,7 +49,7 @@ jobs:
           BRANCH="chore/bump-v${NEW_VERSION}"
           git checkout -b "$BRANCH"
           git add package.json
-          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
+          git commit -m "chore: bump version to ${NEW_VERSION}"
           git push origin "$BRANCH"
 
       - name: Create bump PR
@@ -58,7 +58,7 @@ jobs:
           script: |
             const newVersion = '${{ steps.bump.outputs.new-version }}'
             const branch = `chore/bump-v${newVersion}`
-            const title = `chore: bump version to ${newVersion}`
+            const title = `chore: bump version to ${newVersion} [skip ci]`
 
             const { data: existingPrs } = await github.rest.pulls.list({
               owner: context.repo.owner,
@@ -79,5 +79,16 @@ jobs:
               })
               core.notice(`Created bump PR #${pr.number}: ${title}`)
             } else {
-              core.notice(`Bump PR already exists: #${existingPrs[0].number}`)
+              const existingPr = existingPrs[0]
+              if (!existingPr.title.includes('[skip ci]')) {
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: existingPr.number,
+                  title: `${existingPr.title} [skip ci]`,
+                })
+                core.notice(`Updated bump PR #${existingPr.number} with [skip ci]`)
+              } else {
+                core.notice(`Bump PR already exists: #${existingPr.number}`)
+              }
             }
