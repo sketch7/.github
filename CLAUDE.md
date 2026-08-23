@@ -40,7 +40,7 @@ Because tags float, changing a workflow file changes behavior for every consumer
 
 **Release flow** (`@release-v1`, language-agnostic — shared by both Node and .NET pipelines)
 - `prepare-release.yml` — after a pre-release publish on `main`, force-pushes HEAD to `release/v{baseVersion}`, ensures the `v{major}` stable branch exists (bootstraps it one commit behind so the first PR has a real diff), opens/updates the PR `release/v{baseVersion} → v{major}`.
-- `create-release.yml` — tags the exact version (`v2.1.0`), force-moves the floating major tag (`v2`), publishes a GitHub Release with auto-notes, and outputs `is-latest` (major-version comparison) to gate downstream bump.
+- `create-release.yml` — tags the exact version (`v2.1.0`), force-moves the floating major tag (`v2`), publishes a GitHub Release with auto-notes, and outputs `is-latest` to gate downstream bump. Exact-tag reruns are idempotent only when the existing tag resolves to the workflow commit; it fails closed for conflicting or non-commit targets. The major comparison is paginated and considers only stable exact tags matching `tag-tmpl`, never pre-release or floating tags.
 - `node-bump-main.yml` — after a stable release on the latest major, bumps minor version on `main` (`npm version minor --no-git-tag-version`) and opens a PR, committed with `[skip ci]`. Callers must guard this with `create-release`'s `is-latest == 'true'` so LTS/backport releases (e.g. publishing `v1.x` while `main` is on `v2`) don't spuriously bump main.
 
 **Automation**

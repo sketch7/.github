@@ -51,51 +51,163 @@ jobs:
       - name: Resolve release metadata
         id: meta
         uses: actions/github-script@v9
+        env:
+          VERSION: ${{ inputs.version }}
+          IS_PRERELEASE: ${{ inputs.is-prerelease }}
+          TAG_TMPL: ${{ inputs.tag-tmpl }}
+          EXPECTED_SHA: ${{ github.sha }}
         with:
           script: |
-            const version = '${{ inputs.version }}'
-            const major = Number(version.split('.')[0])
-            const tagTmpl = '${{ inputs.tag-tmpl }}'
-            const prefix = tagTmpl.split('{major}')[0]
-            const exactTag = `${prefix}${version}`
-            const floatingTag = tagTmpl.replace('{major}', String(major))
+            const fail = message => {
+              core.setFailed(message)
+            }
+            const version = process.env.VERSION
+            const isPrereleaseInput = process.env.IS_PRERELEASE
+            const tagTmpl = process.env.TAG_TMPL
+            const expectedSha = process.env.EXPECTED_SHA
+            const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+            const semverMatch = version?.match(semver)
+            if (!semverMatch) {
+              return fail(`version must be canonical SemVer: ${version}`)
+            }
+            if (!['true', 'false'].includes(isPrereleaseInput)) {
+              return fail(`is-prerelease must resolve to true or false: ${isPrereleaseInput}`)
+            }
+            if (!/^[0-9a-f]{40,64}$/i.test(expectedSha ?? '')) {
+              return fail(`github.sha must be a Git object SHA: ${expectedSha}`)
+            }
 
-            const { data: allTags } = await github.rest.repos.listTags({
+            const isPrerelease = isPrereleaseInput === 'true'
+            const hasPrerelease = semverMatch[4] !== undefined
+            if (hasPrerelease !== isPrerelease) {
+              return fail(`version prerelease state (${hasPrerelease}) must match is-prerelease (${isPrerelease})`)
+            }
+
+            const major = Number(semverMatch[1])
+            const marker = '{major}'
+            const markerIndex = tagTmpl?.indexOf(marker) ?? -1
+            if (markerIndex === -1 || tagTmpl.indexOf(marker, markerIndex + marker.length) !== -1) {
+              return fail('tag-tmpl must contain exactly one {major} marker')
+            }
+
+            const prefix = tagTmpl.slice(0, markerIndex)
+            const suffix = tagTmpl.slice(markerIndex + marker.length)
+            const exactTag = `${prefix}${version}${suffix}`
+            const floatingTag = `${prefix}${major}${suffix}`
+            const isValidTagRef = tag => {
+              if (!tag || tag.startsWith('/') || tag.endsWith('/') || tag.endsWith('.') || tag.includes('//') || tag.includes('..') || tag.includes('@{')) {
+                return false
+              }
+              if (/[\x00-\x20\x7f ~^:?*\[\\]/.test(tag)) {
+                return false
+              }
+              return tag.split('/').every(part => part !== '' && part !== '.' && part !== '..' && !part.endsWith('.lock'))
+            }
+            if (!isValidTagRef(exactTag) || !isValidTagRef(floatingTag)) {
+              return fail(`tag-tmpl produces an invalid Git tag ref: ${tagTmpl}`)
+            }
+
+            const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const stableTag = new RegExp(`^${escapeRegex(prefix)}(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)${escapeRegex(suffix)}$`)
+            const allTags = await github.paginate(github.rest.repos.listTags, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               per_page: 100,
             })
             const existingMajors = allTags
               .map(t => {
-                const m = t.name.match(/^v?(\d+)[\.\-]/)
-                return m ? Number(m[1]) : null
+                const match = t.name.match(stableTag)
+                return match ? Number(match[1]) : null
               })
               .filter(n => n !== null)
             const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
-            // pre-releases never float the major tag or become "latest"
-            const isLatest = '${{ inputs.is-prerelease }}' !== 'true' && major >= highestExistingMajor
+            // Pre-releases never float the major tag or become "latest". Only stable exact tags participate.
+            const isLatest = !isPrerelease && major >= highestExistingMajor
+
+            let exactTagExists = false
+            let exactTagMatches = false
+            let ref
+            try {
+              ({ data: ref } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${exactTag}`,
+              }))
+              exactTagExists = true
+            } catch (error) {
+              if (error.status !== 404) {
+                return fail(`unable to resolve exact tag ${exactTag}: ${error.message}`)
+              }
+            }
+
+            if (exactTagExists) {
+              if (!ref?.object || typeof ref.object.sha !== 'string' || typeof ref.object.type !== 'string') {
+                return fail(`exact tag ${exactTag} returned an unexpected Git ref object`)
+              }
+              let object = ref.object
+              const peeledTags = new Set()
+              while (object.type === 'tag') {
+                if (peeledTags.has(object.sha)) {
+                  return fail(`annotated tag ${exactTag} contains a tag-object cycle`)
+                }
+                peeledTags.add(object.sha)
+                try {
+                  const { data: tag } = await github.rest.git.getTag({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    tag_sha: object.sha,
+                  })
+                  if (!tag?.object || typeof tag.object.sha !== 'string' || typeof tag.object.type !== 'string') {
+                    return fail(`annotated tag ${exactTag} returned an unexpected Git object`)
+                  }
+                  object = tag.object
+                } catch (error) {
+                  return fail(`unable to peel annotated tag ${exactTag}: ${error.message}`)
+                }
+              }
+              if (object.type !== 'commit') {
+                return fail(`exact tag ${exactTag} must resolve to a commit, got ${object.type}`)
+              }
+              exactTagMatches = object.sha.toLowerCase() === expectedSha.toLowerCase()
+              if (!exactTagMatches) {
+                return fail(`exact tag ${exactTag} already points to ${object.sha}, not ${expectedSha}`)
+              }
+            }
 
             core.setOutput('exact-tag', exactTag)
             core.setOutput('floating-tag', floatingTag)
             core.setOutput('is-latest', isLatest)
-            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, isLatest: ${isLatest}`)
+            core.setOutput('is-prerelease', isPrerelease)
+            core.setOutput('exact-tag-exists', exactTagExists)
+            core.setOutput('exact-tag-matches', exactTagMatches)
+            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, isLatest: ${isLatest}, exactTagExists: ${exactTagExists}`)
 
       - name: Push version tag
+        if: steps.meta.outputs.exact-tag-exists != 'true'
+        env:
+          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
         run: |
-          git tag ${{ steps.meta.outputs.exact-tag }}
-          git push origin ${{ steps.meta.outputs.exact-tag }}
+          git check-ref-format "refs/tags/${EXACT_TAG}"
+          git tag "${EXACT_TAG}"
+          git push origin "refs/tags/${EXACT_TAG}"
 
       - name: Update floating tag
-        if: inputs.is-prerelease != true
+        if: steps.meta.outputs.is-prerelease != 'true'
+        env:
+          FLOATING_TAG: ${{ steps.meta.outputs.floating-tag }}
         run: |
-          git tag -f ${{ steps.meta.outputs.floating-tag }}
-          git push origin -f refs/tags/${{ steps.meta.outputs.floating-tag }}
+          git check-ref-format "refs/tags/${FLOATING_TAG}"
+          git tag -f "${FLOATING_TAG}"
+          git push origin -f "refs/tags/${FLOATING_TAG}"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
+          IS_LATEST: ${{ steps.meta.outputs.is-latest }}
+          IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
         run: |
           FLAGS="--no-latest"
-          [[ "${{ steps.meta.outputs.is-latest }}" == "true" ]] && FLAGS="--latest"
-          [[ "${{ inputs.is-prerelease }}" == "true" ]] && FLAGS="--prerelease"
-          gh release create "${{ steps.meta.outputs.exact-tag }}" --generate-notes $FLAGS
+          [[ "${IS_LATEST}" == "true" ]] && FLAGS="--latest"
+          [[ "${IS_PRERELEASE}" == "true" ]] && FLAGS="--prerelease"
+          gh release create "${EXACT_TAG}" --generate-notes "${FLAGS}"

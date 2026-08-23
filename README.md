@@ -100,7 +100,7 @@ After a pre-release publish on `main`, force-pushes the current HEAD to a `relea
 
 ### `create-release.yml` · `@release-v1`
 
-Creates the exact git tag (`v2.1.0`), force-updates the floating major tag (`v2`), and publishes a GitHub Release with auto-generated notes. Automatically determines whether to mark the release as `--latest` by comparing the major version against all existing tags. Language-agnostic — used by both Node and .NET publish flows.
+Creates the exact git tag (`v2.1.0`), force-updates the floating major tag (`v2`), and publishes a GitHub Release with auto-generated notes. The exact tag is idempotent on reruns only when it already resolves to the workflow commit; a conflicting or non-commit tag fails closed. Automatically determines whether to mark the release as `--latest` from every paginated, stable exact tag matching `tag-tmpl`; pre-release tags and floating major tags do not affect that comparison. Language-agnostic — used by both Node and .NET publish flows.
 
 **Inputs**
 
