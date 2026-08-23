@@ -83,7 +83,7 @@ jobs:
               return fail(`version prerelease state (${hasPrerelease}) must match is-prerelease (${isPrerelease})`)
             }
 
-            const major = Number(semverMatch[1])
+            const major = semverMatch[1]
             const marker = '{major}'
             const markerIndex = tagTmpl?.indexOf(marker) ?? -1
             if (markerIndex === -1 || tagTmpl.indexOf(marker, markerIndex + marker.length) !== -1) {
@@ -117,12 +117,22 @@ jobs:
             const existingMajors = allTags
               .map(t => {
                 const match = t.name.match(stableTag)
-                return match ? Number(match[1]) : null
+                return match ? match[1] : null
               })
               .filter(n => n !== null)
-            const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
+            const compareMajor = (left, right) => {
+              if (left.length !== right.length) return left.length - right.length
+              for (let index = 0; index < left.length; index += 1) {
+                if (left[index] !== right[index]) return left.charCodeAt(index) - right.charCodeAt(index)
+              }
+              return 0
+            }
+            const highestExistingMajor = existingMajors.reduce(
+              (highest, candidate) => compareMajor(candidate, highest) > 0 ? candidate : highest,
+              major,
+            )
             // Pre-releases never float the major tag or become "latest". Only stable exact tags participate.
-            const isLatest = !isPrerelease && major >= highestExistingMajor
+            const isLatest = !isPrerelease && compareMajor(major, highestExistingMajor) >= 0
 
             let exactTagExists = false
             let exactTagMatches = false
