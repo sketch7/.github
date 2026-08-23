@@ -100,20 +100,22 @@ After a pre-release publish on `main`, force-pushes the current HEAD to a `relea
 
 ### `create-release.yml` · `@release-v1`
 
-Creates the exact git tag (`v2.1.0`), force-updates the floating major tag (`v2`), and publishes a GitHub Release with auto-generated notes. Reruns reuse a GitHub Release only when its prerelease state matches the request; a prerelease-state mismatch fails closed. The exact tag is idempotent on reruns only when it already resolves to the workflow commit; a conflicting or non-commit tag fails closed. Automatically determines whether to mark the release as `--latest` from every paginated, stable exact tag matching `tag-tmpl`; pre-release tags and floating major tags do not affect that comparison. Language-agnostic — used by both Node and .NET publish flows.
+Creates an exact git tag and GitHub Release, then moves eligible stable channels. `tag-tmpl` is split around its single `{major}` marker: the exact tag is the literal prefix + full version + literal suffix (`release-{major}.x` → `release-2.1.0.x`), while the floating tag is the same prefix + major + suffix (`release-2.x`). Invalid refs, including tags beginning with `-`, fail before mutation.
+
+Release runs are serialized per repository. Exact-tag reruns succeed only when the tag resolves to the workflow commit, and existing releases are reused only when they are published and their prerelease state matches; drafts, state mismatches, unexpected API responses, and API errors other than 404 fail closed before tag mutation. A stale rerun may reuse matching immutable tag/release evidence, but it cannot move channels: immediately before channel mutation the workflow re-reads the triggering branch head and requires both a matching SHA and no higher stable exact version in the same major. New stable releases start as non-latest; only an eligible release on the highest stable major is subsequently marked latest. The effective `is-latest` output includes these mutation guards, so stale and superseded runs return `false` and cannot trigger bump-main. Pre-release and floating tags never participate in paginated stable-version comparisons. Language-agnostic — used by both Node and .NET publish flows.
 
 **Inputs**
 
 | Input      | Required | Default    | Description                                                                                                    |
 | ---------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
 | `version`  | ✅        | —          | e.g. `2.1.0`                                                                                                   |
-| `tag-tmpl` | —        | `v{major}` | Tag template; `{major}` is replaced with the major version number. e.g. `v{major}` → `v2`, `{major}.x` → `2.x` |
+| `tag-tmpl` | —        | `v{major}` | Exact/floating tag template with one `{major}` marker. The exact tag substitutes the full version; the floating tag substitutes only the major. |
 
 **Outputs**
 
 | Output      | Example | Description                                                          |
 | ----------- | ------- | -------------------------------------------------------------------- |
-| `is-latest` | `true`  | Whether this major is the highest released. Used to guard bump-main. |
+| `is-latest` | `true`  | Whether this stable release is mutation-eligible and on the highest released stable major. Used to guard bump-main. |
 
 ---
 

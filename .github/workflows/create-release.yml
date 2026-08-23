@@ -31,12 +31,16 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: create-release-${{ github.repository }}
+  cancel-in-progress: false
+
 jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
     outputs:
-      is-latest: ${{ steps.meta.outputs.is-latest }}
+      is-latest: ${{ steps.guard.outputs.is-latest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -95,7 +99,7 @@ jobs:
             const exactTag = `${prefix}${version}${suffix}`
             const floatingTag = `${prefix}${major}${suffix}`
             const isValidTagRef = tag => {
-              if (!tag || tag.startsWith('/') || tag.endsWith('/') || tag.endsWith('.') || tag.includes('//') || tag.includes('..') || tag.includes('@{')) {
+              if (!tag || tag.startsWith('-') || tag.startsWith('/') || tag.endsWith('/') || tag.endsWith('.') || tag.includes('//') || tag.includes('..') || tag.includes('@{')) {
                 return false
               }
               if (/[\x00-\x20\x7f ~^:?*\[\\]/.test(tag)) {
@@ -114,25 +118,42 @@ jobs:
               repo: context.repo.repo,
               per_page: 100,
             })
-            const existingMajors = allTags
+            const stableVersions = allTags
               .map(t => {
                 const match = t.name.match(stableTag)
-                return match ? match[1] : null
+                return match ? { major: match[1], minor: match[2], patch: match[3] } : null
               })
-              .filter(n => n !== null)
-            const compareMajor = (left, right) => {
+              .filter(version => version !== null)
+            const compareDecimal = (left, right) => {
               if (left.length !== right.length) return left.length - right.length
               for (let index = 0; index < left.length; index += 1) {
                 if (left[index] !== right[index]) return left.charCodeAt(index) - right.charCodeAt(index)
               }
               return 0
             }
-            const highestExistingMajor = existingMajors.reduce(
-              (highest, candidate) => compareMajor(candidate, highest) > 0 ? candidate : highest,
+            const compareStableVersion = (left, right) => {
+              for (const component of ['major', 'minor', 'patch']) {
+                const comparison = compareDecimal(left[component], right[component])
+                if (comparison !== 0) return comparison
+              }
+              return 0
+            }
+            const highestExistingMajor = stableVersions.reduce(
+              (highest, candidate) => compareDecimal(candidate.major, highest) > 0 ? candidate.major : highest,
               major,
             )
-            // Pre-releases never float the major tag or become "latest". Only stable exact tags participate.
-            const isLatest = !isPrerelease && compareMajor(major, highestExistingMajor) >= 0
+            const currentStableVersion = {
+              major,
+              minor: semverMatch[2],
+              patch: semverMatch[3],
+            }
+            const hasHigherStableInMajor = stableVersions.some(candidate => (
+              compareDecimal(candidate.major, major) === 0
+              && compareStableVersion(candidate, currentStableVersion) > 0
+            ))
+            // Pre-releases never mutate stable channels or become "latest". Only stable exact tags participate.
+            const isLatestMajor = !isPrerelease && compareDecimal(major, highestExistingMajor) >= 0
+            const isHighestInMajor = !isPrerelease && !hasHigherStableInMajor
 
             let exactTagExists = false
             let exactTagMatches = false
@@ -186,29 +207,12 @@ jobs:
 
             core.setOutput('exact-tag', exactTag)
             core.setOutput('floating-tag', floatingTag)
-            core.setOutput('is-latest', isLatest)
+            core.setOutput('is-latest-major', isLatestMajor)
+            core.setOutput('is-highest-in-major', isHighestInMajor)
             core.setOutput('is-prerelease', isPrerelease)
             core.setOutput('exact-tag-exists', exactTagExists)
             core.setOutput('exact-tag-matches', exactTagMatches)
-            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, isLatest: ${isLatest}, exactTagExists: ${exactTagExists}`)
-
-      - name: Push version tag
-        if: steps.meta.outputs.exact-tag-exists != 'true'
-        env:
-          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
-        run: |
-          git check-ref-format "refs/tags/${EXACT_TAG}"
-          git tag "${EXACT_TAG}"
-          git push origin "refs/tags/${EXACT_TAG}"
-
-      - name: Update floating tag
-        if: steps.meta.outputs.is-prerelease != 'true'
-        env:
-          FLOATING_TAG: ${{ steps.meta.outputs.floating-tag }}
-        run: |
-          git check-ref-format "refs/tags/${FLOATING_TAG}"
-          git tag -f "${FLOATING_TAG}"
-          git push origin -f "refs/tags/${FLOATING_TAG}"
+            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, isLatestMajor: ${isLatestMajor}, isHighestInMajor: ${isHighestInMajor}, exactTagExists: ${exactTagExists}`)
 
       - name: Inspect existing GitHub Release
         id: release
@@ -224,8 +228,11 @@ jobs:
                 repo: context.repo.repo,
                 tag: process.env.EXACT_TAG,
               })
+              if (data.draft === true) {
+                return core.setFailed(`Release ${process.env.EXACT_TAG} is still a draft`)
+              }
               if (data.prerelease !== (process.env.IS_PRERELEASE === "true")) {
-                core.setFailed(`Release ${process.env.EXACT_TAG} has the wrong prerelease state`)
+                return core.setFailed(`Release ${process.env.EXACT_TAG} has the wrong prerelease state`)
               }
               core.setOutput("release-exists", "true")
             } catch (error) {
@@ -233,20 +240,93 @@ jobs:
               core.setOutput("release-exists", "false")
             }
 
+      - name: Push version tag
+        if: steps.meta.outputs.exact-tag-exists != 'true'
+        env:
+          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
+        run: |
+          git check-ref-format "refs/tags/${EXACT_TAG}"
+          git tag -- "${EXACT_TAG}"
+          git push origin "refs/tags/${EXACT_TAG}"
+
       - name: Create GitHub Release
         if: steps.release.outputs.release-exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
-          IS_LATEST: ${{ steps.meta.outputs.is-latest }}
           IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
         run: |
           flags=(--verify-tag --generate-notes)
           if [[ "${IS_PRERELEASE}" == "true" ]]; then
             flags+=(--prerelease)
-          elif [[ "${IS_LATEST}" == "true" ]]; then
-            flags+=(--latest)
           else
-            flags+=(--no-latest)
+            flags+=(--latest=false)
           fi
-          gh release create "${EXACT_TAG}" "${flags[@]}"
+          gh release create "${flags[@]}" -- "${EXACT_TAG}"
+
+      - name: Verify branch head and mutation eligibility
+        id: guard
+        uses: actions/github-script@v9
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          TRIGGER_REF: ${{ github.ref }}
+          IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
+          IS_LATEST_MAJOR: ${{ steps.meta.outputs.is-latest-major }}
+          IS_HIGHEST_IN_MAJOR: ${{ steps.meta.outputs.is-highest-in-major }}
+        with:
+          script: |
+            const fail = message => {
+              core.setFailed(message)
+            }
+            const expectedSha = process.env.EXPECTED_SHA
+            const triggerRef = process.env.TRIGGER_REF
+            const isPrerelease = process.env.IS_PRERELEASE === 'true'
+            const isLatestMajor = process.env.IS_LATEST_MAJOR === 'true'
+            const isHighestInMajor = process.env.IS_HIGHEST_IN_MAJOR === 'true'
+            if (isPrerelease) {
+              core.setOutput('branch-matches', false)
+              core.setOutput('mutation-eligible', false)
+              core.setOutput('is-latest', false)
+              return core.notice('pre-release skips stable-channel mutations')
+            }
+            if (!triggerRef?.startsWith('refs/heads/')) {
+              return fail(`release mutations require a branch ref, got ${triggerRef}`)
+            }
+
+            let ref
+            try {
+              ({ data: ref } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: triggerRef.slice('refs/'.length),
+              }))
+            } catch (error) {
+              return fail(`unable to re-read triggering branch ${triggerRef}: ${error.message}`)
+            }
+            if (!ref?.object || ref.object.type !== 'commit' || typeof ref.object.sha !== 'string') {
+              return fail(`triggering branch ${triggerRef} returned an unexpected Git ref object`)
+            }
+
+            const branchMatches = ref.object.sha.toLowerCase() === expectedSha.toLowerCase()
+            const mutationEligible = !isPrerelease && isHighestInMajor && branchMatches
+            const isLatest = mutationEligible && isLatestMajor
+            core.setOutput('branch-matches', branchMatches)
+            core.setOutput('mutation-eligible', mutationEligible)
+            core.setOutput('is-latest', isLatest)
+            core.notice(`branchMatches: ${branchMatches}, mutationEligible: ${mutationEligible}, isLatest: ${isLatest}`)
+
+      - name: Mark GitHub Release as latest
+        if: steps.guard.outputs.is-latest == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
+        run: gh release edit --latest -- "${EXACT_TAG}"
+
+      - name: Update floating tag
+        if: steps.guard.outputs.mutation-eligible == 'true'
+        env:
+          FLOATING_TAG: ${{ steps.meta.outputs.floating-tag }}
+        run: |
+          git check-ref-format "refs/tags/${FLOATING_TAG}"
+          git tag -f -- "${FLOATING_TAG}"
+          git push origin -f "refs/tags/${FLOATING_TAG}"
