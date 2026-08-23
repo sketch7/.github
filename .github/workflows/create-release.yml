@@ -210,14 +210,43 @@ jobs:
           git tag -f "${FLOATING_TAG}"
           git push origin -f "refs/tags/${FLOATING_TAG}"
 
+      - name: Inspect existing GitHub Release
+        id: release
+        uses: actions/github-script@v9
+        env:
+          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
+          IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
+        with:
+          script: |
+            try {
+              const { data } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: process.env.EXACT_TAG,
+              })
+              if (data.prerelease !== (process.env.IS_PRERELEASE === "true")) {
+                core.setFailed(`Release ${process.env.EXACT_TAG} has the wrong prerelease state`)
+              }
+              core.setOutput("release-exists", "true")
+            } catch (error) {
+              if (error.status !== 404) throw error
+              core.setOutput("release-exists", "false")
+            }
+
       - name: Create GitHub Release
+        if: steps.release.outputs.release-exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
           IS_LATEST: ${{ steps.meta.outputs.is-latest }}
           IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
         run: |
-          FLAGS="--no-latest"
-          [[ "${IS_LATEST}" == "true" ]] && FLAGS="--latest"
-          [[ "${IS_PRERELEASE}" == "true" ]] && FLAGS="--prerelease"
-          gh release create "${EXACT_TAG}" --generate-notes "${FLAGS}"
+          flags=(--verify-tag --generate-notes)
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
+            flags+=(--prerelease)
+          elif [[ "${IS_LATEST}" == "true" ]]; then
+            flags+=(--latest)
+          else
+            flags+=(--no-latest)
+          fi
+          gh release create "${EXACT_TAG}" "${flags[@]}"
