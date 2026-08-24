@@ -111,33 +111,6 @@ jobs:
               return fail(`tag-tmpl produces an invalid Git tag ref: ${tagTmpl}`)
             }
 
-            const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            const stableTag = new RegExp(`^${escapeRegex(prefix)}(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)${escapeRegex(suffix)}$`)
-            const allTags = await github.paginate(github.rest.repos.listTags, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100,
-            })
-            const stableMajors = allTags
-              .map(t => {
-                const match = t.name.match(stableTag)
-                return match ? match[1] : null
-              })
-              .filter(stableMajor => stableMajor !== null)
-            const compareDecimal = (left, right) => {
-              if (left.length !== right.length) return left.length - right.length
-              for (let index = 0; index < left.length; index += 1) {
-                if (left[index] !== right[index]) return left.charCodeAt(index) - right.charCodeAt(index)
-              }
-              return 0
-            }
-            const highestExistingMajor = stableMajors.reduce(
-              (highest, candidate) => compareDecimal(candidate, highest) > 0 ? candidate : highest,
-              major,
-            )
-            // Pre-releases never mutate stable channels or become "latest". Only stable exact tags participate.
-            const isLatestMajor = !isPrerelease && compareDecimal(major, highestExistingMajor) >= 0
-
             let exactTagExists = false
             let exactTagMatches = false
             let ref
@@ -190,11 +163,10 @@ jobs:
 
             core.setOutput('exact-tag', exactTag)
             core.setOutput('floating-tag', floatingTag)
-            core.setOutput('is-latest-major', isLatestMajor)
             core.setOutput('is-prerelease', isPrerelease)
             core.setOutput('exact-tag-exists', exactTagExists)
             core.setOutput('exact-tag-matches', exactTagMatches)
-            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, isLatestMajor: ${isLatestMajor}, exactTagExists: ${exactTagExists}`)
+            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, exactTagExists: ${exactTagExists}`)
 
       - name: Inspect existing GitHub Release
         id: release
@@ -255,7 +227,6 @@ jobs:
           VERSION: ${{ inputs.version }}
           TAG_TMPL: ${{ inputs.tag-tmpl }}
           IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
-          IS_LATEST_MAJOR: ${{ steps.meta.outputs.is-latest-major }}
         with:
           script: |
             const fail = message => {
@@ -266,7 +237,6 @@ jobs:
             const version = process.env.VERSION
             const tagTmpl = process.env.TAG_TMPL
             const isPrerelease = process.env.IS_PRERELEASE === 'true'
-            const isLatestMajor = process.env.IS_LATEST_MAJOR === 'true'
             if (isPrerelease) {
               core.setOutput('branch-matches', false)
               core.setOutput('mutation-eligible', false)
@@ -342,19 +312,25 @@ jobs:
               minor: currentStableVersion[2],
               patch: currentStableVersion[3],
             }
-            const hasHigherStableInMajor = allTags.some(({ name }) => {
+            const stableVersions = allTags.flatMap(({ name }) => {
               const match = name.match(stableTag)
-              if (!match || compareDecimal(match[1], current.major) !== 0) return false
-              const candidate = { major: match[1], minor: match[2], patch: match[3] }
-              return compareStableVersion(candidate, current) > 0
+              return match ? [{ major: match[1], minor: match[2], patch: match[3] }] : []
             })
+            const hasHigherStableInMajor = stableVersions.some(candidate =>
+              compareDecimal(candidate.major, current.major) === 0 && compareStableVersion(candidate, current) > 0
+            )
+            const highestStableMajor = stableVersions.reduce(
+              (highest, candidate) => highest === null || compareDecimal(candidate.major, highest) > 0 ? candidate.major : highest,
+              null,
+            )
+            const isLatestMajor = highestStableMajor === null || compareDecimal(current.major, highestStableMajor) >= 0
 
             const mutationEligible = !hasHigherStableInMajor
             const isLatest = mutationEligible && isLatestMajor
             core.setOutput('branch-matches', branchMatches)
             core.setOutput('mutation-eligible', mutationEligible)
             core.setOutput('is-latest', isLatest)
-            core.notice(`branchMatches: ${branchMatches}, hasHigherStableInMajor: ${hasHigherStableInMajor}, mutationEligible: ${mutationEligible}, isLatest: ${isLatest}`)
+            core.notice(`branchMatches: ${branchMatches}, highestStableMajor: ${highestStableMajor ?? 'none'}, hasHigherStableInMajor: ${hasHigherStableInMajor}, mutationEligible: ${mutationEligible}, isLatest: ${isLatest}`)
 
       - name: Mark GitHub Release as latest
         if: steps.guard.outputs.is-latest == 'true'
