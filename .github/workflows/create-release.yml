@@ -10,11 +10,11 @@ on:
   workflow_call:
     inputs:
       version:
-        description: "Version to release e.g. '2.1.0' or '2.1.0-rc.5' for a pre-release."
+        description: "Canonical SemVer without build metadata, e.g. '2.1.0' or '2.1.0-rc.5'."
         required: true
         type: string
       is-prerelease:
-        description: "Whether this version is a pre-release. Skips floating major-tag update and marks the GitHub Release as pre-release."
+        description: "Deprecated compatibility input. Prerelease state is derived from version."
         required: false
         type: boolean
         default: false
@@ -33,7 +33,7 @@ permissions:
 
 concurrency:
   group: create-release-${{ github.repository }}
-  cancel-in-progress: false
+  queue: max
 
 jobs:
   create-release:
@@ -44,20 +44,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Configure git user
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Resolve release metadata
         id: meta
         uses: actions/github-script@v9
         env:
           VERSION: ${{ inputs.version }}
-          IS_PRERELEASE: ${{ inputs.is-prerelease }}
           TAG_TMPL: ${{ inputs.tag-tmpl }}
           EXPECTED_SHA: ${{ github.sha }}
         with:
@@ -66,27 +58,18 @@ jobs:
               core.setFailed(message)
             }
             const version = process.env.VERSION
-            const isPrereleaseInput = process.env.IS_PRERELEASE
             const tagTmpl = process.env.TAG_TMPL
             const expectedSha = process.env.EXPECTED_SHA
-            const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+            const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?$/
             const semverMatch = version?.match(semver)
             if (!semverMatch) {
               return fail(`version must be canonical SemVer: ${version}`)
-            }
-            if (!['true', 'false'].includes(isPrereleaseInput)) {
-              return fail(`is-prerelease must resolve to true or false: ${isPrereleaseInput}`)
             }
             if (!/^[0-9a-f]{40,64}$/i.test(expectedSha ?? '')) {
               return fail(`github.sha must be a Git object SHA: ${expectedSha}`)
             }
 
-            const isPrerelease = isPrereleaseInput === 'true'
-            const hasPrerelease = semverMatch[4] !== undefined
-            if (hasPrerelease !== isPrerelease) {
-              return fail(`version prerelease state (${hasPrerelease}) must match is-prerelease (${isPrerelease})`)
-            }
-
+            const isPrerelease = semverMatch[4] !== undefined
             const major = semverMatch[1]
             const marker = '{major}'
             const markerIndex = tagTmpl?.indexOf(marker) ?? -1
@@ -112,7 +95,6 @@ jobs:
             }
 
             let exactTagExists = false
-            let exactTagMatches = false
             let ref
             try {
               ({ data: ref } = await github.rest.git.getRef({
@@ -155,17 +137,18 @@ jobs:
               if (object.type !== 'commit') {
                 return fail(`exact tag ${exactTag} must resolve to a commit, got ${object.type}`)
               }
-              exactTagMatches = object.sha.toLowerCase() === expectedSha.toLowerCase()
-              if (!exactTagMatches) {
+              if (object.sha.toLowerCase() !== expectedSha.toLowerCase()) {
                 return fail(`exact tag ${exactTag} already points to ${object.sha}, not ${expectedSha}`)
               }
             }
 
             core.setOutput('exact-tag', exactTag)
             core.setOutput('floating-tag', floatingTag)
+            core.setOutput('version', version)
             core.setOutput('is-prerelease', isPrerelease)
+            core.setOutput('tag-prefix', prefix)
+            core.setOutput('tag-suffix', suffix)
             core.setOutput('exact-tag-exists', exactTagExists)
-            core.setOutput('exact-tag-matches', exactTagMatches)
             core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, exactTagExists: ${exactTagExists}`)
 
       - name: Inspect existing GitHub Release
@@ -224,8 +207,9 @@ jobs:
         env:
           EXPECTED_SHA: ${{ github.sha }}
           TRIGGER_REF: ${{ github.ref }}
-          VERSION: ${{ inputs.version }}
-          TAG_TMPL: ${{ inputs.tag-tmpl }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG_PREFIX: ${{ steps.meta.outputs.tag-prefix }}
+          TAG_SUFFIX: ${{ steps.meta.outputs.tag-suffix }}
           IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
         with:
           script: |
@@ -235,10 +219,10 @@ jobs:
             const expectedSha = process.env.EXPECTED_SHA
             const triggerRef = process.env.TRIGGER_REF
             const version = process.env.VERSION
-            const tagTmpl = process.env.TAG_TMPL
+            const prefix = process.env.TAG_PREFIX
+            const suffix = process.env.TAG_SUFFIX
             const isPrerelease = process.env.IS_PRERELEASE === 'true'
             if (isPrerelease) {
-              core.setOutput('branch-matches', false)
               core.setOutput('mutation-eligible', false)
               core.setOutput('is-latest', false)
               return core.notice('pre-release skips stable-channel mutations')
@@ -261,27 +245,14 @@ jobs:
               return fail(`triggering branch ${triggerRef} returned an unexpected Git ref object`)
             }
 
-            const branchMatches = ref.object.sha.toLowerCase() === expectedSha.toLowerCase()
-            if (!branchMatches) {
-              core.setOutput('branch-matches', false)
+            if (ref.object.sha.toLowerCase() !== expectedSha.toLowerCase()) {
               core.setOutput('mutation-eligible', false)
               core.setOutput('is-latest', false)
               return core.notice('triggering branch moved; stable-channel mutations are suppressed')
             }
 
-            const stableSemver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
-            const currentStableVersion = version?.match(stableSemver)
-            if (!currentStableVersion) {
-              return fail(`stable channel mutation requires canonical stable SemVer: ${version}`)
-            }
-            const marker = '{major}'
-            const markerIndex = tagTmpl?.indexOf(marker) ?? -1
-            if (markerIndex === -1 || tagTmpl.indexOf(marker, markerIndex + marker.length) !== -1) {
-              return fail('tag-tmpl must contain exactly one {major} marker')
-            }
+            const [major, minor, patch] = version.split('.')
             const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            const prefix = tagTmpl.slice(0, markerIndex)
-            const suffix = tagTmpl.slice(markerIndex + marker.length)
             const stableTag = new RegExp(`^${escapeRegex(prefix)}(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)${escapeRegex(suffix)}$`)
             let allTags
             try {
@@ -295,10 +266,7 @@ jobs:
             }
             const compareDecimal = (left, right) => {
               if (left.length !== right.length) return left.length - right.length
-              for (let index = 0; index < left.length; index += 1) {
-                if (left[index] !== right[index]) return left.charCodeAt(index) - right.charCodeAt(index)
-              }
-              return 0
+              return left === right ? 0 : left < right ? -1 : 1
             }
             const compareStableVersion = (left, right) => {
               for (const component of ['major', 'minor', 'patch']) {
@@ -308,9 +276,9 @@ jobs:
               return 0
             }
             const current = {
-              major: currentStableVersion[1],
-              minor: currentStableVersion[2],
-              patch: currentStableVersion[3],
+              major,
+              minor,
+              patch,
             }
             const stableVersions = allTags.flatMap(({ name }) => {
               const match = name.match(stableTag)
@@ -327,10 +295,9 @@ jobs:
 
             const mutationEligible = !hasHigherStableInMajor
             const isLatest = mutationEligible && isLatestMajor
-            core.setOutput('branch-matches', branchMatches)
             core.setOutput('mutation-eligible', mutationEligible)
             core.setOutput('is-latest', isLatest)
-            core.notice(`branchMatches: ${branchMatches}, highestStableMajor: ${highestStableMajor ?? 'none'}, hasHigherStableInMajor: ${hasHigherStableInMajor}, mutationEligible: ${mutationEligible}, isLatest: ${isLatest}`)
+            core.notice(`highestStableMajor: ${highestStableMajor ?? 'none'}, hasHigherStableInMajor: ${hasHigherStableInMajor}, mutationEligible: ${mutationEligible}, isLatest: ${isLatest}`)
 
       - name: Mark GitHub Release as latest
         if: steps.guard.outputs.is-latest == 'true'

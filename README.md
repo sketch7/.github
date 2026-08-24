@@ -100,16 +100,17 @@ After a pre-release publish on `main`, force-pushes the current HEAD to a `relea
 
 ### `create-release.yml` · `@release-v1`
 
-Creates an exact git tag and GitHub Release, then moves eligible stable channels. `tag-tmpl` is split around its single `{major}` marker: the exact tag is the literal prefix + full version + literal suffix (`release-{major}.x` → `release-2.1.0.x`), while the floating tag is the same prefix + major + suffix (`release-2.x`). Invalid refs, including tags beginning with `-`, fail before mutation.
+Creates an exact git tag and GitHub Release, then moves eligible stable channels. `version` is the authoritative canonical SemVer and build metadata is rejected. `tag-tmpl` contains one `{major}` marker: `release-{major}.x` produces exact `release-2.1.0.x` and floating `release-2.x` tags. Invalid refs, including tags beginning with `-`, fail before mutation.
 
-Release runs are serialized per repository. Exact-tag reruns succeed only when the tag resolves to the workflow commit, and existing releases are reused only when they are published and their prerelease state matches; drafts, state mismatches, unexpected API responses, and API errors other than 404 fail closed before tag mutation. A stale rerun may reuse matching immutable tag/release evidence, but it cannot move channels: immediately before channel mutation the workflow re-reads the triggering branch head and paginates stable tags again, requiring both a matching SHA and no higher stable exact version in the same major. Both highest-stable-major classification and same-major mutation eligibility come from this final paginated snapshot. Stable channel mutation requires a branch ref; known callers use branch pushes or branch-selected manual dispatches, while tag-triggered stable calls fail closed. New stable releases start as non-latest; only an eligible release on the highest stable major is subsequently marked latest. The effective `is-latest` output requires that final highest-stable-major classification plus current branch-head and same-major mutation eligibility, so stale and superseded runs return `false` and cannot trigger bump-main. Pre-release and floating tags never participate in paginated stable-version comparisons. Language-agnostic — used by both Node and .NET publish flows.
+Runs queue per repository. Reruns reuse an exact tag only when it resolves to the workflow commit and reuse only a published release with matching prerelease state; conflicts, drafts, and non-404 API errors fail closed before mutation. Immediately before stable-channel mutation, the workflow re-reads the required branch ref and paginates stable exact tags. A moved branch or higher same-major version suppresses floating-tag mutation; a higher stable major also suppresses latest and makes `is-latest` false. Pre-release and floating tags do not participate in stable comparisons.
 
 **Inputs**
 
-| Input      | Required | Default    | Description                                                                                                    |
-| ---------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `version`  | ✅        | —          | e.g. `2.1.0`                                                                                                   |
-| `tag-tmpl` | —        | `v{major}` | Exact/floating tag template with one `{major}` marker. The exact tag substitutes the full version; the floating tag substitutes only the major. |
+| Input           | Required | Default    | Description                                                                                                    |
+| --------------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `version`       | ✅        | —          | Canonical SemVer without build metadata, e.g. `2.1.0` or `2.1.0-rc.5`. Prerelease state is derived from this value. |
+| `is-prerelease` | —        | `false`    | Deprecated compatibility input; ignored.                                                                      |
+| `tag-tmpl`      | —        | `v{major}` | Exact/floating tag template with one `{major}` marker. The exact tag substitutes the full version; the floating tag substitutes only the major. |
 
 **Outputs**
 
