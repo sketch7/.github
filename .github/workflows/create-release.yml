@@ -9,6 +9,16 @@ name: create release
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
+      timeout-minutes:
+        description: "Job timeout in minutes."
+        required: false
+        type: number
+        default: 15
       version:
         description: "Canonical SemVer without build metadata, e.g. '2.1.0' or '2.1.0-rc.5'."
         required: true
@@ -38,7 +48,8 @@ concurrency:
 jobs:
   create-release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJson(inputs.runs-on) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:
       is-latest: ${{ steps.guard.outputs.is-latest }}
     steps:
