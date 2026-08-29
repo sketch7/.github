@@ -7,6 +7,11 @@ name: node bump main
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
       released-version:
         description: "The stable version that was just released e.g. '1.0.0'. Used to derive the bumped version."
         required: true
@@ -24,7 +29,7 @@ permissions:
 jobs:
   bump-main:
     name: Bump main
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJson(inputs.runs-on) }}
     steps:
       - name: Checkout ${{ inputs.default-branch }}
         uses: actions/checkout@v7

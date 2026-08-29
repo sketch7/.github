@@ -4,6 +4,11 @@ name: prepare release
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
       base-version:
         description: "Full base version without preid e.g. '2.1.0'."
         required: true
@@ -27,7 +32,7 @@ jobs:
     concurrency:
       group: prepare-release-v${{ inputs.base-version }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJson(inputs.runs-on) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
