@@ -3,6 +3,11 @@ name: dotnet publish
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
       dotnet-version:
         description: ".NET SDK version to use e.g. '10.0.x'."
         required: false
@@ -93,7 +98,7 @@ permissions:
 jobs:
   publish:
     name: Publish
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJson(inputs.runs-on) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
