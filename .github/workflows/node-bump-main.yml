@@ -12,6 +12,11 @@ on:
         required: false
         type: string
         default: '"ubuntu-latest"'
+      timeout-minutes:
+        description: "Job timeout in minutes."
+        required: false
+        type: number
+        default: 15
       released-version:
         description: "The stable version that was just released e.g. '1.0.0'. Used to derive the bumped version."
         required: true
@@ -30,6 +35,7 @@ jobs:
   bump-main:
     name: Bump main
     runs-on: ${{ fromJson(inputs.runs-on) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
       - name: Checkout ${{ inputs.default-branch }}
         uses: actions/checkout@v7

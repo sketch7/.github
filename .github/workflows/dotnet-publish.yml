@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: '"ubuntu-latest"'
+      timeout-minutes:
+        description: "Job timeout in minutes."
+        required: false
+        type: number
+        default: 15
       dotnet-version:
         description: ".NET SDK version to use e.g. '10.0.x'."
         required: false
@@ -95,10 +100,15 @@ permissions:
   id-token: write
   packages: write
 
+concurrency:
+  group: dotnet-publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     name: Publish
     runs-on: ${{ fromJson(inputs.runs-on) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
