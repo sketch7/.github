@@ -3,6 +3,16 @@ name: node publish
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
+      timeout-minutes:
+        description: "Job timeout in minutes."
+        required: false
+        type: number
+        default: 15
       node-version-file:
         description: "File containing the Node version spec e.g. package.json, .nvmrc."
         required: false
@@ -97,10 +107,15 @@ permissions:
   id-token: write
   packages: write
 
+concurrency:
+  group: node-publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     name: Publish
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJson(inputs.runs-on) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7

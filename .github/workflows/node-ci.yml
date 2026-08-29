@@ -3,6 +3,21 @@ name: node CI
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
+      timeout-minutes:
+        description: "Job timeout in minutes."
+        required: false
+        type: number
+        default: 15
+      skip-draft-pr:
+        description: "Skip the job when triggered by a draft pull request."
+        required: false
+        type: boolean
+        default: true
       node-version-file:
         description: "File containing the Node version spec e.g. package.json, .nvmrc."
         required: false
@@ -29,10 +44,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: node-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     name: Checks
-    runs-on: ubuntu-latest
+    if: inputs.skip-draft-pr != true || github.event.pull_request.draft != true
+    runs-on: ${{ fromJson(inputs.runs-on) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
