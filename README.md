@@ -102,23 +102,25 @@ After a pre-release publish on `main`, force-pushes the current HEAD to a `relea
 
 ### `create-release.yml` · `@release-v1`
 
-Creates an exact git tag and GitHub Release, then moves eligible stable channels. `version` is the authoritative canonical SemVer and build metadata is rejected. `tag-tmpl` contains one `{major}` marker: `release-{major}.x` produces exact `release-2.1.0.x` and floating `release-2.x` tags. Invalid refs, including tags beginning with `-`, fail before mutation.
+Creates an exact git tag and GitHub Release, then moves eligible stable channels. The publisher workflow resolves and preflights the package version before publication; this workflow consumes the published `version` verbatim and never invokes `version-builder-action` again. It still validates the canonical SemVer and rejects build metadata before mutation. `tag-tmpl` contains one `{major}` marker: `release-{major}.x` produces exact `release-2.1.0.x` and floating `release-2.x` tags. Invalid refs, including tags beginning with `-`, fail before mutation.
 
-Runs queue per repository. Reruns reuse an exact tag only when it resolves to the workflow commit and reuse only a published release with matching prerelease state; conflicts, drafts, and non-404 API errors fail closed before mutation. Immediately before stable-channel mutation, the workflow re-reads the required branch ref and paginates stable exact tags. A moved branch or higher same-major version suppresses floating-tag mutation; a higher stable major also suppresses latest and makes `is-latest` false. Pre-release and floating tags do not participate in stable comparisons.
+Runs queue per repository. Reruns reuse an exact tag only when it resolves to the workflow commit and reuse only a published release with matching prerelease state; conflicts, drafts, and non-404 API errors fail closed before mutation. Immediately before stable-channel mutation, the workflow re-reads the triggering branch ref and paginates stable exact tags. A moved branch or higher same-major version suppresses floating-tag mutation; a higher stable major also suppresses latest and makes `is-latest` false. A stable invocation triggered from a tag can still finish exact tag/release finalization, but it has no branch head to validate, so stable-channel mutations are skipped and `is-latest` is `false`. Pre-release and floating tags do not participate in stable comparisons.
 
 **Inputs**
 
-| Input           | Required | Default    | Description                                                                                                    |
-| --------------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `version`       | ✅        | —          | Canonical SemVer without build metadata, e.g. `2.1.0` or `2.1.0-rc.5`. Prerelease state is derived from this value. |
-| `is-prerelease` | —        | `false`    | Deprecated compatibility input; ignored.                                                                      |
-| `tag-tmpl`      | —        | `v{major}` | Exact/floating tag template with one `{major}` marker. The exact tag substitutes the full version; the floating tag substitutes only the major. |
+| Input              | Required | Default    | Description                                                                                                    |
+| ------------------ | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `runs-on`           | —        | `"ubuntu-latest"` | JSON-encoded runner value passed to the release job, e.g. `"ubuntu-latest"` or `["blacksmith-4vcpu-ubuntu-2404"]`. |
+| `timeout-minutes`   | —        | `15`       | Release job timeout in minutes.                                                                               |
+| `version`           | ✅        | —          | Published canonical SemVer without build metadata, e.g. `2.1.0` or `2.1.0-rc.5`; consumed verbatim. Prerelease state is derived from this value. |
+| `is-prerelease`     | —        | `false`    | Deprecated compatibility input; ignored.                                                                      |
+| `tag-tmpl`          | —        | `v{major}` | Exact/floating tag template with one `{major}` marker. The exact tag substitutes the full version; the floating tag substitutes only the major. |
 
 **Outputs**
 
 | Output      | Example | Description                                                          |
 | ----------- | ------- | -------------------------------------------------------------------- |
-| `is-latest` | `true`  | Whether this stable release is on the highest stable major and passes current branch-head and same-major mutation eligibility. Used to guard bump-main. |
+| `is-latest` | `true`  | String value `true` only when this stable release is on the highest stable major, the triggering branch still points at `github.sha`, and no higher same-major stable version exists. It is `false` for prereleases, tag-triggered stable calls, moved branches, and superseded stable releases; callers use `needs.release.outputs.is-latest == 'true'` to guard bump-main. |
 
 ---
 

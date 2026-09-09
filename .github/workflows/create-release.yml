@@ -5,6 +5,8 @@ name: create release
 # Creates an exact git tag (e.g. v2.1.0 or v2.1.0-rc.5) and a GitHub Release with auto-generated notes.
 # Stable versions also float the major tag (e.g. v2); pre-releases skip that and are marked --prerelease.
 # Called by both node and dotnet publish workflows after every publish (stable and pre-release).
+# Publisher workflows own version planning and publication preflight; this workflow consumes their
+# published version and only performs the idempotent release finalization and race-sensitive channel guard.
 
 on:
   workflow_call:
@@ -239,7 +241,9 @@ jobs:
               return core.notice('pre-release skips stable-channel mutations')
             }
             if (!triggerRef?.startsWith('refs/heads/')) {
-              return fail(`release mutations require a branch ref, got ${triggerRef}`)
+              core.setOutput('mutation-eligible', false)
+              core.setOutput('is-latest', false)
+              return core.notice(`stable-channel mutations require a branch ref; exact release finalized without channel updates for ${triggerRef}`)
             }
 
             let ref
