@@ -136,12 +136,14 @@ jobs:
 
       - name: Build version
         id: version-builder
-        uses: sketch7/version-builder-action@v3
+        uses: sketch7/version-builder-action@feature/promotable-app-release-cycle
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
           tag-tmpl: ${{ inputs.tag-tmpl }}
           on-version-conflict: ${{ inputs.on-version-conflict }}
+          release-preflight: true
+          github-token: ${{ github.token }}
 
       - name: Set version envs
         run: |

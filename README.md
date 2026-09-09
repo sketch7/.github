@@ -44,7 +44,9 @@ Runs lint, build, and test. No publish, no version logic. Use on PRs and pushes.
 
 ### `node-publish.yml` · `@node-libs-v2`
 
-Resolves the version via `version-builder-action`, bumps `package.json`, installs, builds, and publishes the package. Designed to run **after** `node-ci.yml` — does not repeat lint/test.
+Resolves the version via `version-builder-action`, runs a fail-closed release preflight, then bumps `package.json`, installs, builds, and publishes the package. Designed to run **after** `node-ci.yml` — does not repeat lint/test.
+
+The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release state before any package/version mutation, build, or registry publication. It is read-only, but the reusable job grants `contents: write` so GitHub includes draft releases in the release listing. Authentication, authorization, rate-limit, transport, and malformed-response failures stop the job without falling back to local tags. During integration, the action is temporarily consumed from `sketch7/version-builder-action@feature/promotable-app-release-cycle`.
 
 **Inputs**
 
@@ -158,7 +160,9 @@ Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish.
 
 ### `dotnet-publish.yml` · `@dotnet-libs-v2`
 
-Resolves the version via `version-builder-action`, builds, packs, and pushes NuGet packages.
+Resolves the version via `version-builder-action`, runs a fail-closed release preflight, then builds, packs, and pushes NuGet packages.
+
+The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release state before any version-file mutation, compilation, packing, or registry publication. It is read-only, but the reusable job grants `contents: write` so GitHub includes draft releases in the release listing. Authentication, authorization, rate-limit, transport, and malformed-response failures stop the job without falling back to local tags. During integration, the action is temporarily consumed from `sketch7/version-builder-action@feature/promotable-app-release-cycle`.
 
 **Inputs**
 

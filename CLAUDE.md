@@ -32,11 +32,11 @@ Because tags float, changing a workflow file changes behavior for every consumer
 
 **Node package CI/CD** (`@node-libs-v2`)
 - `node-ci.yml` — lint, build, test only. No publish/version logic.
-- `node-publish.yml` — resolves version via `version-builder-action`, bumps `package.json`, builds, publishes. Meant to run after `node-ci.yml`, not duplicate it. Emits `version`/`baseVersion`/`isPrerelease`/`tag`/`majorVersion`/`minorVersion`/`patchVersion` outputs consumed by the release jobs below.
+- `node-publish.yml` — resolves version via the preflight-enabled `version-builder-action`, then bumps `package.json`, builds, and publishes. The fail-closed preflight reads live branch, tag, exact-tag, and GitHub Release state before any package/version mutation, build, or publication; it is read-only but requires `contents: write` so draft releases are visible. Meant to run after `node-ci.yml`, not duplicate it. Emits `version`/`baseVersion`/`isPrerelease`/`tag`/`majorVersion`/`minorVersion`/`patchVersion` outputs consumed by the release jobs below. During integration, it temporarily consumes `sketch7/version-builder-action@feature/promotable-app-release-cycle`.
 
 **.NET package CI/CD** (`@dotnet-libs-v2`)
 - `dotnet-ci.yml` — `dotnet restore/build/test`. Solution/project resolution is delegated to the local composite action `.github/actions/resolve-dotnet-sln` (auto-resolves from `package.json#dotnetBuildSln` when `solution-file` is omitted — yes, .NET repos here carry a `package.json` for this purpose).
-- `dotnet-publish.yml` — resolves version, builds, packs, pushes NuGet packages. Same output contract as `node-publish.yml` (minus `minorVersion`/`patchVersion`).
+- `dotnet-publish.yml` — resolves version through the preflight-enabled `version-builder-action`, then builds, packs, and pushes NuGet packages. The fail-closed preflight reads live branch, tag, exact-tag, and GitHub Release state before any version-file mutation, compilation, packing, or publication; it is read-only but requires `contents: write` so draft releases are visible. Same output contract as `node-publish.yml` (minus `minorVersion`/`patchVersion`). During integration, it temporarily consumes `sketch7/version-builder-action@feature/promotable-app-release-cycle`.
 
 **Release flow** (`@release-v1`, language-agnostic — shared by both Node and .NET pipelines)
 - `prepare-release.yml` — after a pre-release publish on `main`, force-pushes HEAD to `release/v{baseVersion}`, ensures the `v{major}` stable branch exists (bootstraps it one commit behind so the first PR has a real diff), opens/updates the PR `release/v{baseVersion} → v{major}`.
