@@ -169,20 +169,31 @@ jobs:
         uses: actions/github-script@v9
         env:
           EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
+          EXACT_TAG_EXISTS: ${{ steps.meta.outputs.exact-tag-exists }}
           IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
         with:
           script: |
+            const exactTag = process.env.EXACT_TAG
             try {
               const { data } = await github.rest.repos.getReleaseByTag({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                tag: process.env.EXACT_TAG,
+                tag: exactTag,
               })
+              if (!data || data.tag_name !== exactTag) {
+                return core.setFailed(`Release response tag_name does not match ${exactTag}`)
+              }
+              if (typeof data.draft !== "boolean" || typeof data.prerelease !== "boolean") {
+                return core.setFailed(`Release ${exactTag} returned a malformed draft/prerelease response`)
+              }
+              if (process.env.EXACT_TAG_EXISTS !== "true") {
+                return core.setFailed(`Release ${exactTag} exists without its exact Git tag`)
+              }
               if (data.draft === true) {
-                return core.setFailed(`Release ${process.env.EXACT_TAG} is still a draft`)
+                return core.setFailed(`Release ${exactTag} is still a draft`)
               }
               if (data.prerelease !== (process.env.IS_PRERELEASE === "true")) {
-                return core.setFailed(`Release ${process.env.EXACT_TAG} has the wrong prerelease state`)
+                return core.setFailed(`Release ${exactTag} has the wrong prerelease state`)
               }
               core.setOutput("release-exists", "true")
             } catch (error) {
