@@ -1,342 +1,106 @@
-# Tagged @release-v1 — language-agnostic, shared by node and dotnet workflows.
+# Breaking release-v2 contract: one version input; prerelease state comes from that version.
 name: create release
-
-# Generic, language-agnostic release workflow.
-# Creates an exact git tag (e.g. v2.1.0 or v2.1.0-rc.5) and a GitHub Release with auto-generated notes.
-# Stable versions also float the major tag (e.g. v2); pre-releases skip that and are marked --prerelease.
-# Called by both node and dotnet publish workflows after every publish (stable and pre-release).
-# Publisher workflows own version planning and publication preflight; this workflow consumes their
-# published version and only performs the idempotent release finalization and race-sensitive channel guard.
 
 on:
   workflow_call:
     inputs:
       runs-on:
-        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
-        required: false
+        description: JSON-encoded runner label or array.
         type: string
         default: '"ubuntu-latest"'
       timeout-minutes:
-        description: "Job timeout in minutes."
-        required: false
         type: number
         default: 15
       version:
-        description: "Canonical SemVer without build metadata, e.g. '2.1.0' or '2.1.0-rc.5'."
+        description: Published canonical SemVer, without a v prefix or build metadata.
+        type: string
         required: true
-        type: string
-      is-prerelease:
-        description: "Deprecated compatibility input. Prerelease state is derived from version."
-        required: false
-        type: boolean
-        default: false
-      tag-tmpl:
-        description: "Tag template for git tags. Use `{major}` as placeholder e.g. 'v{major}' → 'v2' or '{major}.x' → '2.x'."
-        required: false
-        type: string
-        default: "v{major}"
     outputs:
       is-latest:
-        description: "Whether this stable release is on the highest stable major and passes current branch-head and same-major mutation eligibility. Always 'false' for pre-releases."
+        description: Whether this is the current highest stable release.
         value: ${{ jobs.create-release.outputs.is-latest }}
 
 permissions:
   contents: write
 
-concurrency:
-  group: create-release-${{ github.repository }}
-  queue: max
-
 jobs:
   create-release:
-    name: Create Release
-    runs-on: ${{ fromJson(inputs.runs-on) }}
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:
-      is-latest: ${{ steps.guard.outputs.is-latest }}
+      is-latest: ${{ steps.release.outputs.is-latest }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Resolve release metadata
-        id: meta
-        uses: actions/github-script@v9
-        env:
-          VERSION: ${{ inputs.version }}
-          TAG_TMPL: ${{ inputs.tag-tmpl }}
-          EXPECTED_SHA: ${{ github.sha }}
+      - uses: actions/checkout@v7
         with:
-          script: |
-            const fail = message => {
-              core.setFailed(message)
-            }
-            const version = process.env.VERSION
-            const tagTmpl = process.env.TAG_TMPL
-            const expectedSha = process.env.EXPECTED_SHA
-            const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?$/
-            const semverMatch = version?.match(semver)
-            if (!semverMatch) {
-              return fail(`version must be canonical SemVer: ${version}`)
-            }
-            if (!/^[0-9a-f]{40,64}$/i.test(expectedSha ?? '')) {
-              return fail(`github.sha must be a Git object SHA: ${expectedSha}`)
-            }
+          fetch-depth: 0
 
-            const isPrerelease = semverMatch[4] !== undefined
-            const major = semverMatch[1]
-            const marker = '{major}'
-            const markerIndex = tagTmpl?.indexOf(marker) ?? -1
-            if (markerIndex === -1 || tagTmpl.indexOf(marker, markerIndex + marker.length) !== -1) {
-              return fail('tag-tmpl must contain exactly one {major} marker')
-            }
-
-            const prefix = tagTmpl.slice(0, markerIndex)
-            const suffix = tagTmpl.slice(markerIndex + marker.length)
-            const exactTag = `${prefix}${version}${suffix}`
-            const floatingTag = `${prefix}${major}${suffix}`
-            const isValidTagRef = tag => {
-              if (!tag || tag.startsWith('-') || tag.startsWith('/') || tag.endsWith('/') || tag.endsWith('.') || tag.includes('//') || tag.includes('..') || tag.includes('@{')) {
-                return false
-              }
-              if (/[\x00-\x20\x7f ~^:?*\[\\]/.test(tag)) {
-                return false
-              }
-              return tag.split('/').every(part => part !== '' && part !== '.' && part !== '..' && !part.endsWith('.lock'))
-            }
-            if (!isValidTagRef(exactTag) || !isValidTagRef(floatingTag)) {
-              return fail(`tag-tmpl produces an invalid Git tag ref: ${tagTmpl}`)
-            }
-
-            let exactTagExists = false
-            let ref
-            try {
-              ({ data: ref } = await github.rest.git.getRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `tags/${exactTag}`,
-              }))
-              exactTagExists = true
-            } catch (error) {
-              if (error.status !== 404) {
-                return fail(`unable to resolve exact tag ${exactTag}: ${error.message}`)
-              }
-            }
-
-            if (exactTagExists) {
-              if (!ref?.object || typeof ref.object.sha !== 'string' || typeof ref.object.type !== 'string') {
-                return fail(`exact tag ${exactTag} returned an unexpected Git ref object`)
-              }
-              let object = ref.object
-              const peeledTags = new Set()
-              while (object.type === 'tag') {
-                if (peeledTags.has(object.sha)) {
-                  return fail(`annotated tag ${exactTag} contains a tag-object cycle`)
-                }
-                peeledTags.add(object.sha)
-                try {
-                  const { data: tag } = await github.rest.git.getTag({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    tag_sha: object.sha,
-                  })
-                  if (!tag?.object || typeof tag.object.sha !== 'string' || typeof tag.object.type !== 'string') {
-                    return fail(`annotated tag ${exactTag} returned an unexpected Git object`)
-                  }
-                  object = tag.object
-                } catch (error) {
-                  return fail(`unable to peel annotated tag ${exactTag}: ${error.message}`)
-                }
-              }
-              if (object.type !== 'commit') {
-                return fail(`exact tag ${exactTag} must resolve to a commit, got ${object.type}`)
-              }
-              if (object.sha.toLowerCase() !== expectedSha.toLowerCase()) {
-                return fail(`exact tag ${exactTag} already points to ${object.sha}, not ${expectedSha}`)
-              }
-            }
-
-            core.setOutput('exact-tag', exactTag)
-            core.setOutput('floating-tag', floatingTag)
-            core.setOutput('version', version)
-            core.setOutput('is-prerelease', isPrerelease)
-            core.setOutput('tag-prefix', prefix)
-            core.setOutput('tag-suffix', suffix)
-            core.setOutput('exact-tag-exists', exactTagExists)
-            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, exactTagExists: ${exactTagExists}`)
-
-      - name: Inspect existing GitHub Release
+      # The caller serializes the entire publish/finalize/channel flow per repository.
+      # This finalizes the supplied artifact version; it never allocates another version.
+      - name: Finalize exact release
         id: release
         uses: actions/github-script@v9
         env:
-          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
-          EXACT_TAG_EXISTS: ${{ steps.meta.outputs.exact-tag-exists }}
-          IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
+          VERSION: ${{ inputs.version }}
         with:
           script: |
-            const exactTag = process.env.EXACT_TAG
-            try {
-              const { data } = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag: exactTag,
-              })
-              if (!data || data.tag_name !== exactTag) {
-                return core.setFailed(`Release response tag_name does not match ${exactTag}`)
-              }
-              if (typeof data.draft !== "boolean" || typeof data.prerelease !== "boolean") {
-                return core.setFailed(`Release ${exactTag} returned a malformed draft/prerelease response`)
-              }
-              if (process.env.EXACT_TAG_EXISTS !== "true") {
-                return core.setFailed(`Release ${exactTag} exists without its exact Git tag`)
-              }
-              if (data.draft === true) {
-                return core.setFailed(`Release ${exactTag} is still a draft`)
-              }
-              if (data.prerelease !== (process.env.IS_PRERELEASE === "true")) {
-                return core.setFailed(`Release ${exactTag} has the wrong prerelease state`)
-              }
-              core.setOutput("release-exists", "true")
-            } catch (error) {
-              if (error.status !== 404) throw error
-              core.setOutput("release-exists", "false")
-            }
-
-      - name: Push version tag
-        if: steps.meta.outputs.exact-tag-exists != 'true'
-        env:
-          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
-        run: |
-          git check-ref-format "refs/tags/${EXACT_TAG}"
-          git tag -- "${EXACT_TAG}"
-          git push origin "refs/tags/${EXACT_TAG}"
-
-      - name: Create GitHub Release
-        if: steps.release.outputs.release-exists != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
-          IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
-        run: |
-          flags=(--verify-tag --generate-notes)
-          if [[ "${IS_PRERELEASE}" == "true" ]]; then
-            flags+=(--prerelease)
-          else
-            flags+=(--latest=false)
-          fi
-          gh release create "${flags[@]}" -- "${EXACT_TAG}"
-
-      - name: Verify branch head and mutation eligibility
-        id: guard
-        uses: actions/github-script@v9
-        env:
-          EXPECTED_SHA: ${{ github.sha }}
-          TRIGGER_REF: ${{ github.ref }}
-          VERSION: ${{ steps.meta.outputs.version }}
-          TAG_PREFIX: ${{ steps.meta.outputs.tag-prefix }}
-          TAG_SUFFIX: ${{ steps.meta.outputs.tag-suffix }}
-          IS_PRERELEASE: ${{ steps.meta.outputs.is-prerelease }}
-        with:
-          script: |
-            const fail = message => {
-              core.setFailed(message)
-            }
-            const expectedSha = process.env.EXPECTED_SHA
-            const triggerRef = process.env.TRIGGER_REF
+            const { execFileSync } = require('node:child_process')
             const version = process.env.VERSION
-            const prefix = process.env.TAG_PREFIX
-            const suffix = process.env.TAG_SUFFIX
-            const isPrerelease = process.env.IS_PRERELEASE === 'true'
-            if (isPrerelease) {
-              core.setOutput('mutation-eligible', false)
-              core.setOutput('is-latest', false)
-              return core.notice('pre-release skips stable-channel mutations')
+            const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?$/.exec(version ?? '')
+            if (!match) throw new Error('version must be canonical SemVer without build metadata')
+            const tag = `v${version}`
+            const prerelease = match[4] !== undefined
+            const repo = context.repo
+            const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
+            const optional = async request => {
+              try { return (await request()).data }
+              catch (error) { if (error.status !== 404) throw error }
             }
-            if (!triggerRef?.startsWith('refs/heads/')) {
-              core.setOutput('mutation-eligible', false)
-              core.setOutput('is-latest', false)
-              return core.notice(`stable-channel mutations require a branch ref; exact release finalized without channel updates for ${triggerRef}`)
+            core.setOutput('is-latest', false)
+
+            // Native Git peels annotated tags, including tags of tags.
+            const tags = git('tag', '--list').split('\n')
+            const exists = tags.includes(tag)
+            if (exists && git('rev-parse', `refs/tags/${tag}^{commit}`) !== context.sha)
+              throw new Error(`Exact tag ${tag} belongs to another commit`)
+            let release = await optional(() => github.rest.repos.getReleaseByTag({ ...repo, tag }))
+            if (release && (!exists || release.tag_name !== tag || release.draft !== false || release.prerelease !== prerelease))
+              throw new Error(`Release ${tag} conflicts with the published artifact`)
+            if (!exists)
+              await github.rest.git.createRef({ ...repo, ref: `refs/tags/${tag}`, sha: context.sha })
+            if (!release)
+              release = (await github.rest.repos.createRelease({
+                ...repo, tag_name: tag, name: tag, prerelease,
+                generate_release_notes: true, make_latest: 'false',
+              })).data
+
+            if (prerelease || !context.ref.startsWith('refs/heads/')) return
+            const branch = (await github.rest.git.getRef({ ...repo, ref: context.ref.slice(5) })).data
+            if (branch.object.sha !== context.sha) {
+              core.notice('Branch advanced: exact release retained; channels and main bump skipped')
+              return
             }
 
-            let ref
-            try {
-              ({ data: ref } = await github.rest.git.getRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: triggerRef.slice('refs/'.length),
-              }))
-            } catch (error) {
-              return fail(`unable to re-read triggering branch ${triggerRef}: ${error.message}`)
-            }
-            if (!ref?.object || ref.object.type !== 'commit' || typeof ref.object.sha !== 'string') {
-              return fail(`triggering branch ${triggerRef} returned an unexpected Git ref object`)
-            }
-
-            if (ref.object.sha.toLowerCase() !== expectedSha.toLowerCase()) {
-              core.setOutput('mutation-eligible', false)
-              core.setOutput('is-latest', false)
-              return core.notice('triggering branch moved; stable-channel mutations are suppressed')
-            }
-
-            const [major, minor, patch] = version.split('.')
-            const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            const stableTag = new RegExp(`^${escapeRegex(prefix)}(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)${escapeRegex(suffix)}$`)
-            let allTags
-            try {
-              allTags = await github.paginate(github.rest.repos.listTags, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                per_page: 100,
-              })
-            } catch (error) {
-              return fail(`unable to re-read stable tags: ${error.message}`)
-            }
-            const compareDecimal = (left, right) => {
-              if (left.length !== right.length) return left.length - right.length
-              return left === right ? 0 : left < right ? -1 : 1
-            }
-            const compareStableVersion = (left, right) => {
-              for (const component of ['major', 'minor', 'patch']) {
-                const comparison = compareDecimal(left[component], right[component])
-                if (comparison !== 0) return comparison
-              }
-              return 0
-            }
-            const current = {
-              major,
-              minor,
-              patch,
-            }
-            const stableVersions = allTags.flatMap(({ name }) => {
-              const match = name.match(stableTag)
-              return match ? [{ major: match[1], minor: match[2], patch: match[3] }] : []
+            // Paginate and compare arbitrary-size integers; prereleases cannot take latest.
+            const allTags = await github.paginate(github.rest.repos.listTags, { ...repo, per_page: 100 })
+            const current = match.slice(1, 4).map(BigInt)
+            const stable = allTags.flatMap(({ name }) => {
+              const parsed = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(name)
+              return parsed ? [parsed.slice(1).map(BigInt)] : []
             })
-            const hasHigherStableInMajor = stableVersions.some(candidate =>
-              compareDecimal(candidate.major, current.major) === 0 && compareStableVersion(candidate, current) > 0
-            )
-            const highestStableMajor = stableVersions.reduce(
-              (highest, candidate) => highest === null || compareDecimal(candidate.major, highest) > 0 ? candidate.major : highest,
-              null,
-            )
-            const isLatestMajor = highestStableMajor === null || compareDecimal(current.major, highestStableMajor) >= 0
-
-            const mutationEligible = !hasHigherStableInMajor
-            const isLatest = mutationEligible && isLatestMajor
-            core.setOutput('mutation-eligible', mutationEligible)
-            core.setOutput('is-latest', isLatest)
-            core.notice(`highestStableMajor: ${highestStableMajor ?? 'none'}, hasHigherStableInMajor: ${hasHigherStableInMajor}, mutationEligible: ${mutationEligible}, isLatest: ${isLatest}`)
-
-      - name: Mark GitHub Release as latest
-        if: steps.guard.outputs.is-latest == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EXACT_TAG: ${{ steps.meta.outputs.exact-tag }}
-        run: gh release edit --latest -- "${EXACT_TAG}"
-
-      - name: Update floating tag
-        if: steps.guard.outputs.mutation-eligible == 'true'
-        env:
-          FLOATING_TAG: ${{ steps.meta.outputs.floating-tag }}
-        run: |
-          git check-ref-format "refs/tags/${FLOATING_TAG}"
-          git tag -f -- "${FLOATING_TAG}"
-          git push origin -f "refs/tags/${FLOATING_TAG}"
+            const greater = candidate => {
+              for (let i = 0; i < 3; i++) {
+                if (candidate[i] !== current[i]) return candidate[i] > current[i]
+              }
+              return false
+            }
+            if (stable.some(candidate => candidate[0] === current[0] && greater(candidate))) return
+            const latest = !stable.some(greater)
+            const ref = `tags/v${match[1]}`
+            const floating = await optional(() => github.rest.git.getRef({ ...repo, ref }))
+            if (floating)
+              await github.rest.git.updateRef({ ...repo, ref, sha: context.sha, force: true })
+            else
+              await github.rest.git.createRef({ ...repo, ref: `refs/${ref}`, sha: context.sha })
+            if (latest)
+              await github.rest.repos.updateRelease({ ...repo, release_id: release.id, make_latest: 'true' })
+            core.setOutput('is-latest', latest)

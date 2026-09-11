@@ -2,6 +2,12 @@
 
 Reusable GitHub Actions workflows for Node and .NET packages. Provides separate, composable workflows for CI checks, publishing, release PR preparation, and GitHub Release creation.
 
+## Breaking migration
+
+The next tracks are `node-libs-v3`, `dotnet-libs-v3` and `release-v2`; they are not published by this change. Integration callers remain on `feature/promotable-app-release-cycle` until validation and merge.
+
+Remove `is-prerelease` from release calls and `tag-tmpl` from publish/release calls. Exact tags always use `v{version}`; stable floating tags use `v{major}`. Older major tags are no longer updated by this branch.
+
 ## Tags
 
 [![update tags](https://github.com/sketch7/.github/actions/workflows/update-tags.yml/badge.svg)](https://github.com/sketch7/.github/actions/workflows/update-tags.yml)
@@ -10,11 +16,9 @@ Tags are updated automatically on push to `main` when workflow files change. Use
 
 | Tag              | Workflows                                                         |
 | ---------------- | ----------------------------------------------------------------- |
-| `node-libs-v1`   | `node-lib.yml` (deprecated — use v2 split workflows)              |
-| `node-libs-v2`   | `node-ci.yml`, `node-publish.yml`                                 |
-| `dotnet-libs-v1` | `dotnet-package.yml` (deprecated — use v2 split workflows)        |
-| `dotnet-libs-v2` | `dotnet-ci.yml`, `dotnet-publish.yml`                             |
-| `release-v1`     | `prepare-release.yml`, `create-release.yml`, `node-bump-main.yml` |
+| `node-libs-v3`   | `node-ci.yml`, `node-publish.yml`                                 |
+| `dotnet-libs-v3` | `dotnet-ci.yml`, `dotnet-publish.yml`                             |
+| `release-v2`     | `prepare-release.yml`, `create-release.yml`, `node-bump-main.yml` |
 
 ```bash
 # manual fallback — move a single tag
@@ -25,7 +29,7 @@ TAG=<TAG> && git tag -f $TAG && git push origin $TAG -f
 
 ## Workflows
 
-### `node-ci.yml` · `@node-libs-v2`
+### `node-ci.yml` · `@node-libs-v3`
 
 Runs lint, build, and test. No publish, no version logic. Use on PRs and pushes.
 
@@ -42,7 +46,7 @@ Runs lint, build, and test. No publish, no version logic. Use on PRs and pushes.
 
 ---
 
-### `node-publish.yml` · `@node-libs-v2`
+### `node-publish.yml` · `@node-libs-v3`
 
 Resolves the version via `version-builder-action`, runs a fail-closed release preflight, then bumps `package.json`, installs, builds, and publishes the package. Designed to run **after** `node-ci.yml` — does not repeat lint/test.
 
@@ -59,7 +63,6 @@ The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release s
 | `private-npm-scope`    | —                            | Scope for private registry                            |
 | `preid-branches`       | _(action default)_           | Branch → preid mapping e.g. `main:rc,develop:dev`     |
 | `force-preid`          | `false`                      | Force preid even if branch doesn't match              |
-| `tag-tmpl`             | `v{major}`                   | Tag template used to check for existing version tags; must match `create-release.yml`'s `tag-tmpl`. Passed through to `version-builder-action`. |
 | `on-version-conflict`  | `bump-patch`                       | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`).       |
 | `publish-command`      | `npm run release`            | Command used to publish                               |
 | `version-replace`      | `0.0.0-PLACEHOLDER`          | Placeholder string to replace in source               |
@@ -81,7 +84,7 @@ The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release s
 
 ---
 
-### `prepare-release.yml` · `@release-v1`
+### `prepare-release.yml` · `@release-v2`
 
 After a pre-release publish on `main`, force-pushes the current HEAD to a `release/v{baseVersion}` branch, ensures the `v{major}` stable branch exists (creates it automatically on first use), and always creates (or updates) a PR from `release/v{baseVersion}` → `v{major}`. On first bootstrap, `v{major}` is created one commit behind the release branch so the PR has a real file diff — ensuring a squash merge onto `v{major}` always contains real changes and correctly triggers push-based workflows. Language-agnostic.
 
@@ -100,11 +103,11 @@ After a pre-release publish on `main`, force-pushes the current HEAD to a `relea
 
 ---
 
-### `create-release.yml` · `@release-v1`
+### `create-release.yml` · `@release-v2`
 
-Creates an exact git tag and GitHub Release, then moves eligible stable channels. The publisher workflow resolves and preflights the package version before publication; this workflow consumes the published `version` verbatim and never invokes `version-builder-action` again. It still validates the canonical SemVer and rejects build metadata before mutation. `tag-tmpl` contains one `{major}` marker: `release-{major}.x` produces exact `release-2.1.0.x` and floating `release-2.x` tags. Invalid refs, including tags beginning with `-`, fail before mutation.
+Creates the exact `v{version}` Git tag and GitHub Release, then moves eligible stable channels. The publisher resolves and preflights the version before publication. The finalizer consumes it verbatim; it does not calculate another version. Canonical SemVer without build metadata is required.
 
-Runs queue per repository. Reruns reuse an exact tag only when it resolves to the workflow commit and reuse only a published release with matching prerelease state; conflicts, drafts, and non-404 API errors fail closed before mutation. Immediately before stable-channel mutation, the workflow re-reads the triggering branch ref and paginates stable exact tags. A moved branch or higher same-major version suppresses floating-tag mutation; a higher stable major also suppresses latest and makes `is-latest` false. A stable invocation triggered from a tag can still finish exact tag/release finalization, but it has no branch head to validate, so stable-channel mutations are skipped and `is-latest` is `false`. Pre-release and floating tags do not participate in stable comparisons.
+Callers must serialize the entire publish/finalize flow per repository with `cancel-in-progress: false` and `queue: max`. Reruns reuse an exact tag only when it resolves to the workflow commit and reuse only a published release with matching prerelease state; conflicts, drafts, and non-404 API errors fail closed before mutation. Immediately before stable-channel mutation, the workflow re-reads the triggering branch ref and paginates stable exact tags. A moved branch or higher same-major version suppresses floating-tag mutation; a higher stable major also suppresses latest and makes `is-latest` false. A stable invocation triggered from a tag can still finish exact tag/release finalization, but it has no branch head to validate, so stable-channel mutations are skipped and `is-latest` is `false`. Pre-release and floating tags do not participate in stable comparisons.
 
 **Inputs**
 
@@ -113,8 +116,6 @@ Runs queue per repository. Reruns reuse an exact tag only when it resolves to th
 | `runs-on`           | —        | `"ubuntu-latest"` | JSON-encoded runner value passed to the release job, e.g. `"ubuntu-latest"` or `["blacksmith-4vcpu-ubuntu-2404"]`. |
 | `timeout-minutes`   | —        | `15`       | Release job timeout in minutes.                                                                               |
 | `version`           | ✅        | —          | Published canonical SemVer without build metadata, e.g. `2.1.0` or `2.1.0-rc.5`; consumed verbatim. Prerelease state is derived from this value. |
-| `is-prerelease`     | —        | `false`    | Deprecated compatibility input; ignored.                                                                      |
-| `tag-tmpl`          | —        | `v{major}` | Exact/floating tag template with one `{major}` marker. The exact tag substitutes the full version; the floating tag substitutes only the major. |
 
 **Outputs**
 
@@ -124,7 +125,7 @@ Runs queue per repository. Reruns reuse an exact tag only when it resolves to th
 
 ---
 
-### `node-bump-main.yml` · `@release-v1`
+### `node-bump-main.yml` · `@release-v2`
 
 After a stable release on the latest major, bumps the minor version in `package.json` on the default branch and opens a PR. Uses `npm version minor --no-git-tag-version` and puts `[skip ci]` in the generated PR title so the merge commit skips duplicate push-triggered CI. The bump commit deliberately has no skip marker, allowing required pull-request checks to run; use squash or merge commits so the PR title is carried into the merge commit. This marker applies only to the automated bump PR, not the release PR. Callers should guard with `create-release` output `is-latest == 'true'` so backport releases (e.g. `v1.x` while main is on `v2`) don't trigger a spurious bump.
 
@@ -137,7 +138,7 @@ After a stable release on the latest major, bumps the minor version in `package.
 
 ---
 
-### `dotnet-ci.yml` · `@dotnet-libs-v2`
+### `dotnet-ci.yml` · `@dotnet-libs-v3`
 
 Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish.
 
@@ -160,7 +161,7 @@ Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish.
 
 ---
 
-### `dotnet-publish.yml` · `@dotnet-libs-v2`
+### `dotnet-publish.yml` · `@dotnet-libs-v3`
 
 Resolves the version via `version-builder-action`, runs a fail-closed release preflight, then builds, packs, and pushes NuGet packages.
 
@@ -179,7 +180,6 @@ The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release s
 | `private-nuget-env-prefix` | —                                     | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
 | `preid-branches`           | _(action default)_                    | Branch → preid mapping e.g. `main:rc,develop:dev`                                                                                              |
 | `force-preid`              | `false`                               | Force preid even if branch doesn't match                                                                                                       |
-| `tag-tmpl`                 | `v{major}`                            | Tag template used to check for existing version tags; must match `create-release.yml`'s `tag-tmpl`. Passed through to `version-builder-action`. |
 | `on-version-conflict`      | `bump-patch`                                | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`). |
 
 **Secrets**
@@ -195,51 +195,7 @@ The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release s
 
 ## Branch & Release Flow
 
-```mermaid
-flowchart TD
-    PR["Pull Request → main"] -->|on: pull_request| CI
-    PUSH_MAIN["Push to main"] -->|on: push| CI
-    PUSH_MAIN --> CD_publish
-
-    CD_publish["CD: publish job<br/>node-publish.yml<br/>→ publishes 2.1.0-rc.5 --tag rc"]
-    CD_publish -->|"ref_name == 'main'"| PrepareRelease
-    PrepareRelease["CD: prepare-release job<br/>prepare-release.yml<br/>→ ensures v2 branch exists<br/>→ creates/updates PR<br/>release/v2.1.0 → v2"]
-
-    RELEASE_PR["Release PR merged<br/>(release/v2.1.0 → v2)"] -->|on: push to v2| CI2
-    RELEASE_PR --> CD_stable
-
-    CI["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
-    CI2["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
-
-    CD_publish -->|"always"| CreateReleaseRc
-    CreateReleaseRc["CD: release job<br/>create-release.yml<br/>→ tag v2.1.0-rc.5<br/>→ GitHub Release (pre-release) ✨<br/>no floating tag, is-latest == false"]
-
-    CD_stable["CD: publish job<br/>node-publish.yml<br/>→ publishes 2.1.0 --tag latest"]
-    CD_stable -->|"always"| CreateRelease
-
-    CreateRelease["CD: release job<br/>create-release.yml<br/>→ tag v2.1.0<br/>→ float tag v2<br/>→ GitHub Release ✨<br/>outputs: is-latest"]
-    CreateRelease -->|"is-latest == true"| BumpMain
-    BumpMain["CD: bump-main job<br/>node-bump-main.yml<br/>→ bumps main to 2.2.0<br/>→ opens chore/bump-v2.2.0 PR 🔼"]
-
-    PUSH_LTS["Push to v1 (LTS fix)"] -->|on: push| CI3
-    PUSH_LTS --> CD_lts
-
-    CI3["CI workflow<br/>node-ci.yml<br/>→ lint, build, test"]
-
-    CD_lts["CD: publish job<br/>node-publish.yml<br/>→ publishes 1.5.3 --tag v1-lts"]
-    CD_lts -->|"always"| CreateRelease2
-
-    CreateRelease2["CD: release job<br/>create-release.yml<br/>→ tag v1.5.3<br/>→ float tag v1<br/>→ GitHub Release (non-latest) ✨<br/>is-latest == false → no bump"]
-
-    style PrepareRelease fill:#bfdbfe,stroke:#60a5fa,color:#1e3a5f
-    style CreateRelease fill:#bbf7d0,stroke:#4ade80,color:#14532d
-    style CreateRelease2 fill:#bbf7d0,stroke:#4ade80,color:#14532d
-    style CreateReleaseRc fill:#bbf7d0,stroke:#4ade80,color:#14532d
-    style BumpMain fill:#ddd6fe,stroke:#a78bfa,color:#2e1065
-    style CD_publish fill:#fef08a,stroke:#facc15,color:#713f12
-    style CD_stable fill:#fef08a,stroke:#facc15,color:#713f12
-    style CD_lts fill:#fef08a,stroke:#facc15,color:#713f12
-```
+PRs into `main` and `v*` run CI. A push to `main` publishes an RC and prepares the release PR; merging the release PR into `v1` publishes stable. Release-branch bootstrap pushes (`github.event.created`) must not publish. Older majors can release patches without becoming latest or bumping main.
 
 ---
 
@@ -267,7 +223,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "v*", "workflow"]
+    branches: ["workflow"]
     paths-ignore: ["**.md"]
   pull_request:
     branches: [main, "v*"]
@@ -279,7 +235,7 @@ permissions:
 jobs:
   ci:
     name: node CI
-    uses: sketch7/.github/.github/workflows/node-ci.yml@node-libs-v2
+    uses: sketch7/.github/.github/workflows/node-ci.yml@node-libs-v3
     with:
       package-manager: pnpm
       private-npm-registry: ${{ vars.MY_NPM_REGISTRY }}
@@ -291,6 +247,11 @@ jobs:
 
 ```yaml
 name: CD
+
+concurrency:
+  group: package-release-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
 
 on:
   push:
@@ -317,10 +278,11 @@ jobs:
   publish:
     name: Publish
     if: |
-      contains(fromJSON('["main", "workflow"]'), github.ref_name) ||
-      startsWith(github.ref_name, 'v') ||
-      github.event.inputs.publish == 'true'
-    uses: sketch7/.github/.github/workflows/node-publish.yml@node-libs-v2
+      (github.event_name != 'push' || github.event.created == false) &&
+      (contains(fromJSON('["main", "workflow"]'), github.ref_name) ||
+       startsWith(github.ref_name, 'v') ||
+       github.event.inputs.publish == 'true')
+    uses: sketch7/.github/.github/workflows/node-publish.yml@node-libs-v3
     with:
       package-manager: pnpm
       private-npm-registry: ${{ vars.MY_NPM_REGISTRY }}
@@ -336,7 +298,7 @@ jobs:
       needs.publish.result == 'success' &&
       github.event_name == 'push' &&
       github.ref_name == 'main'
-    uses: sketch7/.github/.github/workflows/prepare-release.yml@release-v1
+    uses: sketch7/.github/.github/workflows/prepare-release.yml@release-v2
     with:
       base-version: ${{ needs.publish.outputs.baseVersion }}
 
@@ -344,10 +306,9 @@ jobs:
     name: Release
     needs: publish
     if: needs.publish.result == 'success'
-    uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
+    uses: sketch7/.github/.github/workflows/create-release.yml@release-v2
     with:
       version: ${{ needs.publish.outputs.version }}
-      is-prerelease: ${{ fromJSON(needs.publish.outputs.isPrerelease) }}
 
   bump-main:
     name: Bump main
@@ -356,7 +317,7 @@ jobs:
       needs.release.result == 'success' &&
       needs.release.outputs.is-latest == 'true' &&
       github.event_name == 'push'
-    uses: sketch7/.github/.github/workflows/node-bump-main.yml@release-v1
+    uses: sketch7/.github/.github/workflows/node-bump-main.yml@release-v2
     with:
       released-version: ${{ needs.publish.outputs.version }}
 ```
@@ -374,7 +335,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "v*", "workflow"]
+    branches: ["workflow"]
     paths-ignore: ["**.md"]
   pull_request:
     branches: [main, "v*"]
@@ -387,7 +348,7 @@ permissions:
 jobs:
   ci:
     name: dotnet CI
-    uses: sketch7/.github/.github/workflows/dotnet-ci.yml@dotnet-libs-v2
+    uses: sketch7/.github/.github/workflows/dotnet-ci.yml@dotnet-libs-v3
 ```
 
 > With a **private NuGet registry** (e.g. GitHub Packages), add:
@@ -406,6 +367,11 @@ jobs:
 
 ```yaml
 name: CD
+
+concurrency:
+  group: package-release-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
 
 on:
   push:
@@ -431,10 +397,11 @@ jobs:
   publish:
     name: Publish
     if: |
-      contains(fromJSON('["main", "workflow"]'), github.ref_name) ||
-      startsWith(github.ref_name, 'v') ||
-      github.event.inputs.publish == 'true'
-    uses: sketch7/.github/.github/workflows/dotnet-publish.yml@dotnet-libs-v2
+      (github.event_name != 'push' || github.event.created == false) &&
+      (contains(fromJSON('["main", "workflow"]'), github.ref_name) ||
+       startsWith(github.ref_name, 'v') ||
+       github.event.inputs.publish == 'true')
+    uses: sketch7/.github/.github/workflows/dotnet-publish.yml@dotnet-libs-v3
     with:
       force-preid: ${{ github.event.inputs.force-prerelease == 'true' }}
     secrets:
@@ -447,7 +414,7 @@ jobs:
       needs.publish.result == 'success' &&
       github.event_name == 'push' &&
       github.ref_name == 'main'
-    uses: sketch7/.github/.github/workflows/prepare-release.yml@release-v1
+    uses: sketch7/.github/.github/workflows/prepare-release.yml@release-v2
     with:
       base-version: ${{ needs.publish.outputs.baseVersion }}
 
@@ -455,17 +422,7 @@ jobs:
     name: Release
     needs: publish
     if: needs.publish.result == 'success'
-    uses: sketch7/.github/.github/workflows/create-release.yml@release-v1
+    uses: sketch7/.github/.github/workflows/create-release.yml@release-v2
     with:
       version: ${{ needs.publish.outputs.version }}
-      is-prerelease: ${{ fromJSON(needs.publish.outputs.isPrerelease) }}
 ```
-
----
-
-## Deprecated Workflows
-
-| Workflow                               | Replaced by                                                                                                       |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `node-lib.yml` `@node-libs-v1`         | `node-ci.yml` + `node-publish.yml` + `prepare-release.yml` + `create-release.yml` `@node-libs-v2` / `@release-v1` |
-| `dotnet-package.yml` `@dotnet-libs-v1` | `dotnet-ci.yml` + `dotnet-publish.yml` + `create-release.yml` `@dotnet-libs-v2` / `@release-v1`                   |

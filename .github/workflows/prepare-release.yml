@@ -1,4 +1,4 @@
-# Tagged @release-v1 — language-agnostic, shared by node and dotnet workflows.
+# Tagged @release-v2 — language-agnostic, shared by node and dotnet workflows.
 name: prepare release
 
 on:

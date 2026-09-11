@@ -1,4 +1,4 @@
-# Tagged @release-v1 — Node only. Called after a stable release to bump main's minor version.
+# Tagged @release-v2 — Called after a stable release to bump main's minor version.
 name: node bump main
 
 # Opens a PR bumping the minor version in package.json on the main branch.

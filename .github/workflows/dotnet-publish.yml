@@ -54,11 +54,6 @@ on:
         required: false
         type: boolean
         default: false
-      tag-tmpl:
-        description: "Tag template used to check for existing version tags. Must match the value passed to create-release.yml. Use `{major}` as placeholder e.g. 'v{major}'."
-        required: false
-        type: string
-        default: "v{major}"
       on-version-conflict:
         description: "Behavior when a stable version's git tag already exists: 'fail' or 'bump-patch' (auto-increments the patch until a free tag is found). Only applies to stable (non-prerelease) publishes."
         required: false
@@ -140,7 +135,6 @@ jobs:
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
-          tag-tmpl: ${{ inputs.tag-tmpl }}
           on-version-conflict: ${{ inputs.on-version-conflict }}
           release-preflight: true
           github-token: ${{ github.token }}
@@ -151,7 +145,7 @@ jobs:
           echo "ASSEMBLY_VERSION=${{ steps.version-builder.outputs.fileVersion }}" >> $GITHUB_ENV
 
       - name: Resolve solution file
-        uses: sketch7/.github/.github/actions/resolve-dotnet-sln@dotnet-libs-v2
+        uses: sketch7/.github/.github/actions/resolve-dotnet-sln@feature/promotable-app-release-cycle
         with:
           project-path: ${{ inputs.project-path }}
           solution-file: ${{ inputs.solution-file }}

@@ -8,24 +8,16 @@ on:
     paths: [".github/workflows/*.yml"]
   workflow_dispatch:
     inputs:
-      node-libs-v1:
-        description: "node-libs-v1 (deprecated)"
+      node-libs-v3:
+        description: "node-libs-v3"
         type: boolean
         default: false
-      node-libs-v2:
-        description: "node-libs-v2"
+      dotnet-libs-v3:
+        description: "dotnet-libs-v3"
         type: boolean
         default: false
-      dotnet-libs-v1:
-        description: "dotnet-libs-v1 (deprecated)"
-        type: boolean
-        default: false
-      dotnet-libs-v2:
-        description: "dotnet-libs-v2"
-        type: boolean
-        default: false
-      release-v1:
-        description: "release-v1"
+      release-v2:
+        description: "release-v2"
         type: boolean
         default: false
 
@@ -54,20 +46,16 @@ jobs:
         uses: actions/github-script@v9
         env:
           CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
-          INPUT_NODE_LIBS_V1: ${{ inputs.node-libs-v1 }}
-          INPUT_NODE_LIBS_V2: ${{ inputs.node-libs-v2 }}
-          INPUT_DOTNET_LIBS_V1: ${{ inputs.dotnet-libs-v1 }}
-          INPUT_DOTNET_LIBS_V2: ${{ inputs.dotnet-libs-v2 }}
-          INPUT_RELEASE_V1: ${{ inputs.release-v1 }}
+          INPUT_NODE_LIBS_V3: ${{ inputs.node-libs-v3 }}
+          INPUT_DOTNET_LIBS_V3: ${{ inputs.dotnet-libs-v3 }}
+          INPUT_RELEASE_V2: ${{ inputs.release-v2 }}
           COMMIT_SHA: ${{ github.sha }}
         with:
           script: |
             const TAG_MAP = {
-              'node-libs-v1':   ['node-lib.yml'],
-              'node-libs-v2':   ['node-ci.yml', 'node-publish.yml'],
-              'dotnet-libs-v1': ['dotnet-package.yml'],
-              'dotnet-libs-v2': ['dotnet-ci.yml', 'dotnet-publish.yml'],
-              'release-v1':     ['prepare-release.yml', 'create-release.yml', 'node-bump-main.yml'],
+              'node-libs-v3':   ['node-ci.yml', 'node-publish.yml'],
+              'dotnet-libs-v3': ['dotnet-ci.yml', 'dotnet-publish.yml'],
+              'release-v2':     ['prepare-release.yml', 'create-release.yml', 'node-bump-main.yml'],
             }
 
             let tags = []
@@ -80,11 +68,9 @@ jobs:
               }
             } else {
               const inputMap = {
-                'node-libs-v1':   process.env.INPUT_NODE_LIBS_V1   === 'true',
-                'node-libs-v2':   process.env.INPUT_NODE_LIBS_V2   === 'true',
-                'dotnet-libs-v1': process.env.INPUT_DOTNET_LIBS_V1 === 'true',
-                'dotnet-libs-v2': process.env.INPUT_DOTNET_LIBS_V2 === 'true',
-                'release-v1':     process.env.INPUT_RELEASE_V1     === 'true',
+                'node-libs-v3':   process.env.INPUT_NODE_LIBS_V3   === 'true',
+                'dotnet-libs-v3': process.env.INPUT_DOTNET_LIBS_V3 === 'true',
+                'release-v2':     process.env.INPUT_RELEASE_V2     === 'true',
               }
               tags = Object.entries(inputMap).filter(([, v]) => v).map(([k]) => k)
             }
