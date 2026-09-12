@@ -127,7 +127,7 @@ Callers must serialize the entire publish/finalize flow per repository with `can
 
 ### `node-bump-main.yml` · `@release-v2`
 
-After a stable release on the latest major, bumps the minor version in `package.json` on the default branch and opens a PR. Uses `npm version minor --no-git-tag-version` and puts `[skip ci]` in the generated PR title so the merge commit skips duplicate push-triggered CI. The bump commit deliberately has no skip marker, allowing required pull-request checks to run; use squash or merge commits so the PR title is carried into the merge commit. This marker applies only to the automated bump PR, not the release PR. Callers should guard with `create-release` output `is-latest == 'true'` so backport releases (e.g. `v1.x` while main is on `v2`) don't trigger a spurious bump.
+After a latest-major stable release, opens a PR for the released version's next minor. Retries reuse the same branch; an already advanced main is left unchanged. There are no CI skip markers. Callers must pass a `token` secret (PAT or GitHub App token) that can trigger PR checks, and guard with `create-release` output `is-latest == 'true'`. The optional `package-json-dir` input defaults to `.` for repositories whose version lives below the root.
 
 **Inputs**
 
@@ -320,6 +320,8 @@ jobs:
     uses: sketch7/.github/.github/workflows/node-bump-main.yml@release-v2
     with:
       released-version: ${{ needs.publish.outputs.version }}
+    secrets:
+      token: ${{ secrets.GH_PAT }}
 ```
 
 ---
