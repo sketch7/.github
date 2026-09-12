@@ -1,41 +1,26 @@
-# Tagged @release-v1 — language-agnostic, shared by node and dotnet workflows.
+# Breaking release-v2 contract: one version input; prerelease state comes from that version.
 name: create release
-
-# Generic, language-agnostic release workflow.
-# Creates an exact git tag (e.g. v2.1.0 or v2.1.0-rc.5) and a GitHub Release with auto-generated notes.
-# Stable versions also float the major tag (e.g. v2); pre-releases skip that and are marked --prerelease.
-# Called by both node and dotnet publish workflows after every publish (stable and pre-release).
 
 on:
   workflow_call:
     inputs:
       runs-on:
-        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
-        required: false
+        description: JSON-encoded runner label or array.
         type: string
         default: '"ubuntu-latest"'
       timeout-minutes:
-        description: "Job timeout in minutes."
-        required: false
         type: number
         default: 15
       version:
-        description: "Version to release e.g. '2.1.0' or '2.1.0-rc.5' for a pre-release."
+        description: Published canonical SemVer, without a v prefix or build metadata.
+        type: string
         required: true
-        type: string
-      is-prerelease:
-        description: "Whether this version is a pre-release. Skips floating major-tag update and marks the GitHub Release as pre-release."
-        required: false
-        type: boolean
-        default: false
-      tag-tmpl:
-        description: "Tag template for git tags. Use `{major}` as placeholder e.g. 'v{major}' → 'v2' or '{major}.x' → '2.x'."
-        required: false
-        type: string
-        default: "v{major}"
     outputs:
+      update-channels:
+        description: Whether callers may update Docker channels and deploy this release; still check branch freshness.
+        value: ${{ jobs.create-release.outputs.update-channels }}
       is-latest:
-        description: "Whether this release is the latest (highest major version). Always 'false' for pre-releases."
+        description: Whether this is the current highest stable release.
         value: ${{ jobs.create-release.outputs.is-latest }}
 
 permissions:
@@ -43,70 +28,89 @@ permissions:
 
 jobs:
   create-release:
-    name: Create Release
-    runs-on: ${{ fromJson(inputs.runs-on) }}
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:
-      is-latest: ${{ steps.meta.outputs.is-latest }}
+      update-channels: ${{ steps.release.outputs.update-channels }}
+      is-latest: ${{ steps.release.outputs.is-latest }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Configure git user
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Resolve release metadata
-        id: meta
+      # The caller serializes the entire publish/finalize/channel flow per repository.
+      # This finalizes the supplied artifact version; it never allocates another version.
+      - name: Finalize exact release
+        id: release
         uses: actions/github-script@v9
+        env:
+          VERSION: ${{ inputs.version }}
         with:
           script: |
-            const version = '${{ inputs.version }}'
-            const major = Number(version.split('.')[0])
-            const tagTmpl = '${{ inputs.tag-tmpl }}'
-            const prefix = tagTmpl.split('{major}')[0]
-            const exactTag = `${prefix}${version}`
-            const floatingTag = tagTmpl.replace('{major}', String(major))
+            const { execFileSync } = require('node:child_process')
+            const version = process.env.VERSION
+            const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?$/.exec(version ?? '')
+            if (!match) throw new Error('version must be canonical SemVer without build metadata')
+            const tag = `v${version}`
+            const prerelease = match[4] !== undefined
+            const repo = context.repo
+            const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
+            const optional = async request => {
+              try { return (await request()).data }
+              catch (error) { if (error.status !== 404) throw error }
+            }
+            core.setOutput('is-latest', false)
+            core.setOutput('update-channels', false)
 
-            const { data: allTags } = await github.rest.repos.listTags({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100,
+            // Native Git peels annotated tags, including tags of tags.
+            const tags = git('tag', '--list').split('\n')
+            const exists = tags.includes(tag)
+            if (exists && git('rev-parse', `refs/tags/${tag}^{commit}`) !== context.sha)
+              throw new Error(`Exact tag ${tag} belongs to another commit`)
+            let release = await optional(() => github.rest.repos.getReleaseByTag({ ...repo, tag }))
+            if (release && (!exists || release.tag_name !== tag || release.draft !== false || release.prerelease !== prerelease))
+              throw new Error(`Release ${tag} conflicts with the published artifact`)
+            if (!exists)
+              await github.rest.git.createRef({ ...repo, ref: `refs/tags/${tag}`, sha: context.sha })
+            if (!release)
+              release = (await github.rest.repos.createRelease({
+                ...repo, tag_name: tag, name: tag, prerelease,
+                generate_release_notes: true, make_latest: 'false',
+              })).data
+
+            if (prerelease) {
+              core.setOutput('update-channels', true)
+              return
+            }
+            if (!context.ref.startsWith('refs/heads/')) return
+            const branch = (await github.rest.git.getRef({ ...repo, ref: context.ref.slice(5) })).data
+            if (branch.object.sha !== context.sha) {
+              core.notice('Branch advanced: exact release retained; channels and main bump skipped')
+              return
+            }
+
+            // Paginate and compare arbitrary-size integers; prereleases cannot take latest.
+            const allTags = await github.paginate(github.rest.repos.listTags, { ...repo, per_page: 100 })
+            const current = match.slice(1, 4).map(BigInt)
+            const stable = allTags.flatMap(({ name }) => {
+              const parsed = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(name)
+              return parsed ? [parsed.slice(1).map(BigInt)] : []
             })
-            const existingMajors = allTags
-              .map(t => {
-                const m = t.name.match(/^v?(\d+)[\.\-]/)
-                return m ? Number(m[1]) : null
-              })
-              .filter(n => n !== null)
-            const highestExistingMajor = existingMajors.length > 0 ? Math.max(...existingMajors) : major
-            // pre-releases never float the major tag or become "latest"
-            const isLatest = '${{ inputs.is-prerelease }}' !== 'true' && major >= highestExistingMajor
-
-            core.setOutput('exact-tag', exactTag)
-            core.setOutput('floating-tag', floatingTag)
-            core.setOutput('is-latest', isLatest)
-            core.notice(`exactTag: ${exactTag}, floatingTag: ${floatingTag}, isLatest: ${isLatest}`)
-
-      - name: Push version tag
-        run: |
-          git tag ${{ steps.meta.outputs.exact-tag }}
-          git push origin ${{ steps.meta.outputs.exact-tag }}
-
-      - name: Update floating tag
-        if: inputs.is-prerelease != true
-        run: |
-          git tag -f ${{ steps.meta.outputs.floating-tag }}
-          git push origin -f refs/tags/${{ steps.meta.outputs.floating-tag }}
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          FLAGS="--no-latest"
-          [[ "${{ steps.meta.outputs.is-latest }}" == "true" ]] && FLAGS="--latest"
-          [[ "${{ inputs.is-prerelease }}" == "true" ]] && FLAGS="--prerelease"
-          gh release create "${{ steps.meta.outputs.exact-tag }}" --generate-notes $FLAGS
+            const greater = candidate => {
+              for (let i = 0; i < 3; i++) {
+                if (candidate[i] !== current[i]) return candidate[i] > current[i]
+              }
+              return false
+            }
+            if (stable.some(candidate => candidate[0] === current[0] && greater(candidate))) return
+            const latest = !stable.some(greater)
+            const ref = `tags/v${match[1]}`
+            const floating = await optional(() => github.rest.git.getRef({ ...repo, ref }))
+            if (floating)
+              await github.rest.git.updateRef({ ...repo, ref, sha: context.sha, force: true })
+            else
+              await github.rest.git.createRef({ ...repo, ref: `refs/${ref}`, sha: context.sha })
+            if (latest)
+              await github.rest.repos.updateRelease({ ...repo, release_id: release.id, make_latest: 'true' })
+            core.setOutput('is-latest', latest)
+            core.setOutput('update-channels', true)

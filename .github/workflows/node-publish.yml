@@ -50,11 +50,6 @@ on:
         required: false
         type: string
         default: "npm run build"
-      tag-tmpl:
-        description: "Tag template used to check for existing version tags. Must match the value passed to create-release.yml. Use `{major}` as placeholder e.g. 'v{major}'."
-        required: false
-        type: string
-        default: "v{major}"
       on-version-conflict:
         description: "Behavior when a stable version's git tag already exists: 'fail' or 'bump-patch' (auto-increments the patch until a free tag is found). Only applies to stable (non-prerelease) publishes."
         required: false
@@ -149,12 +144,13 @@ jobs:
 
       - name: Build version
         id: version-builder
-        uses: sketch7/version-builder-action@v3
+        uses: sketch7/version-builder-action@feature/promotable-app-release-cycle
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
-          tag-tmpl: ${{ inputs.tag-tmpl }}
           on-version-conflict: ${{ inputs.on-version-conflict }}
+          release-preflight: true
+          github-token: ${{ github.token }}
 
       - name: Set version env
         run: echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
