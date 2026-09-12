@@ -16,6 +16,9 @@ on:
         type: string
         required: true
     outputs:
+      update-channels:
+        description: Whether callers may update Docker channels and deploy this release; still check branch freshness.
+        value: ${{ jobs.create-release.outputs.update-channels }}
       is-latest:
         description: Whether this is the current highest stable release.
         value: ${{ jobs.create-release.outputs.is-latest }}
@@ -28,6 +31,7 @@ jobs:
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:
+      update-channels: ${{ steps.release.outputs.update-channels }}
       is-latest: ${{ steps.release.outputs.is-latest }}
     steps:
       - uses: actions/checkout@v7
@@ -56,6 +60,7 @@ jobs:
               catch (error) { if (error.status !== 404) throw error }
             }
             core.setOutput('is-latest', false)
+            core.setOutput('update-channels', false)
 
             // Native Git peels annotated tags, including tags of tags.
             const tags = git('tag', '--list').split('\n')
@@ -73,7 +78,11 @@ jobs:
                 generate_release_notes: true, make_latest: 'false',
               })).data
 
-            if (prerelease || !context.ref.startsWith('refs/heads/')) return
+            if (prerelease) {
+              core.setOutput('update-channels', true)
+              return
+            }
+            if (!context.ref.startsWith('refs/heads/')) return
             const branch = (await github.rest.git.getRef({ ...repo, ref: context.ref.slice(5) })).data
             if (branch.object.sha !== context.sha) {
               core.notice('Branch advanced: exact release retained; channels and main bump skipped')
@@ -104,3 +113,4 @@ jobs:
             if (latest)
               await github.rest.repos.updateRelease({ ...repo, release_id: release.id, make_latest: 'true' })
             core.setOutput('is-latest', latest)
+            core.setOutput('update-channels', true)

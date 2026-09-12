@@ -121,6 +121,7 @@ Callers must serialize the entire publish/finalize flow per repository with `can
 
 | Output      | Example | Description                                                          |
 | ----------- | ------- | -------------------------------------------------------------------- |
+| `update-channels` | `true` | Whether an app may proceed to Docker channels/deployment. Allows RCs and current old-major releases, but excludes stale/superseded stable releases. The app still checks branch freshness immediately before channel updates. |
 | `is-latest` | `true`  | String value `true` only when this stable release is on the highest stable major, the triggering branch still points at `github.sha`, and no higher same-major stable version exists. It is `false` for prereleases, tag-triggered stable calls, moved branches, and superseded stable releases; callers use `needs.release.outputs.is-latest == 'true'` to guard bump-main. |
 
 ---

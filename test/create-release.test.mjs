@@ -72,6 +72,7 @@ test('prerelease creates exact release only', async t => {
   await f.execute();
   assert.deepEqual(f.state.writes.map(([kind]) => kind), ['tag', 'release']);
   assert.equal(f.state.writes[1][1].prerelease, true);
+  assert.equal(f.state.outputs['update-channels'], true);
   assert.equal(f.state.outputs['is-latest'], false);
 });
 
@@ -113,6 +114,7 @@ test('higher stable major prevents latest but allows old-major channel', async t
   f.state.tags = [...Array.from({ length: 100 }, (_, i) => `v1.0.0-rc.${i}`), 'v2.0.0'];
   await f.execute();
   assert.equal(f.state.pages, 1);
+  assert.equal(f.state.outputs['update-channels'], true);
   assert.equal(f.state.outputs['is-latest'], false);
   assert.equal(f.state.writes.some(([kind, data]) => kind === 'tag' && data.ref === 'refs/tags/v1'), true);
 });
@@ -128,6 +130,7 @@ test('newer same-major stable suppresses all channel mutation', async t => {
   const f = fixture(t);
   f.state.tags = ['v1.4.0'];
   await f.execute();
+  assert.equal(f.state.outputs['update-channels'], false);
   assert.deepEqual(f.state.writes.map(([kind]) => kind), ['tag', 'release']);
 });
 
@@ -142,6 +145,7 @@ test('stale branch finalizes but cannot move channels', async t => {
   const f = fixture(t);
   f.state.branch = '0'.repeat(40);
   await f.execute();
+  assert.equal(f.state.outputs['update-channels'], false);
   assert.deepEqual(f.state.writes.map(([kind]) => kind), ['tag', 'release']);
 });
 
