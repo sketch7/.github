@@ -28,6 +28,7 @@ permissions:
 
 jobs:
   create-release:
+    if: inputs.version != ''
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:

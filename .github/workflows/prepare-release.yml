@@ -33,6 +33,7 @@ permissions:
 
 jobs:
   prepare-release:
+    if: inputs.base-version != ''
     name: Prepare Release
     concurrency:
       group: prepare-release-v${{ inputs.base-version }}

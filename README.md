@@ -4,6 +4,11 @@ Reusable GitHub Actions workflows for Node and .NET packages. Provides separate,
 
 ## Breaking migration
 
+Publishers run Version Builder preflight before SDK/dependency setup. A default-branch
+push containing only the next-minor version bump is a successful no-op with empty
+version outputs; shared prepare/create workflows skip those empty outputs. No
+commit-message skip markers or per-repository bump detectors are required.
+
 The next tracks are `node-libs-v3`, `dotnet-libs-v3` and `release-v2`; they are not published by this change. Integration callers remain on `feature/promotable-app-release-cycle` until validation and merge.
 
 Remove `is-prerelease` from release calls and `tag-tmpl` from publish/release calls. Exact tags always use `v{version}`; stable floating tags use `v{major}`. Older major tags are no longer updated by this branch.
