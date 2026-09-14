@@ -4,6 +4,12 @@ Reusable GitHub Actions workflows for Node and .NET packages. Provides separate,
 
 ## Breaking migration
 
+Node package publication uses Node 24/npm 11 for trusted publishing; build and
+pre-release commands retain the caller's configured runtime. OSS callers need
+`id-token: write`, a GitHub-hosted runner and matching npm trusted-publisher
+settings, not a publish token. Keep private registry auth only for private packages.
+Verify npm's workflow binding when adopting a renamed caller such as `cd.yml`.
+
 Publishers run Version Builder preflight before SDK/dependency setup. A default-branch
 push containing only the next-minor version bump is a successful no-op with empty
 version outputs; shared prepare/create workflows skip those empty outputs. No
