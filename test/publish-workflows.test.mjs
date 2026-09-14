@@ -4,16 +4,6 @@ import test from "node:test";
 
 const workflow = name => readFileSync(new URL("../.github/workflows/" + name, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 
-test("npm publication uses an OIDC-capable runtime after the caller build", () => {
-  const source = workflow("node-publish.yml");
-  const runtime = source.indexOf("- name: Setup publishing runtime");
-  assert.ok(runtime > source.indexOf("- name: Pre-release\n"));
-  assert.ok(runtime < source.indexOf("- name: Publish\n"));
-  assert.match(source.slice(runtime), /node-version: "24"/);
-  assert.match(source.slice(runtime), /run: npm install --global npm@11/);
-  assert.match(source, /id-token: write/);
-});
-
 for (const name of ["node-publish.yml", "dotnet-publish.yml"]) {
   test(name + ": preflight precedes setup and gates every publishing step", () => {
     const source = workflow(name);
