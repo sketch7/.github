@@ -32,15 +32,15 @@ Because tags float, changing a workflow file changes behavior for every consumer
 
 **Node package CI/CD** (`@node-libs-v2`)
 - `node-ci.yml` — lint, build, test only. No publish/version logic.
-- `node-publish.yml` — resolves version via `version-builder-action`, bumps `package.json`, builds, publishes. Meant to run after `node-ci.yml`, not duplicate it. Emits `version`/`baseVersion`/`isPrerelease`/`tag`/`majorVersion`/`minorVersion`/`patchVersion` outputs consumed by the release jobs below.
+- `node-publish.yml` — resolves version via the preflight-enabled `version-builder-action`, then bumps `package.json`, builds, and publishes. The fail-closed preflight reads live branch, tag, exact-tag, and GitHub Release state before any package/version mutation, build, or publication; it is read-only but requires `contents: write` so draft releases are visible. Meant to run after `node-ci.yml`, not duplicate it. Emits `version`/`baseVersion`/`isPrerelease`/`tag`/`majorVersion`/`minorVersion`/`patchVersion` outputs consumed by the release jobs below. During integration, it temporarily consumes `sketch7/version-builder-action@feature/promotable-app-release-cycle`.
 
 **.NET package CI/CD** (`@dotnet-libs-v2`)
 - `dotnet-ci.yml` — `dotnet restore/build/test`. Solution/project resolution is delegated to the local composite action `.github/actions/resolve-dotnet-sln` (auto-resolves from `package.json#dotnetBuildSln` when `solution-file` is omitted — yes, .NET repos here carry a `package.json` for this purpose).
-- `dotnet-publish.yml` — resolves version, builds, packs, pushes NuGet packages. Same output contract as `node-publish.yml` (minus `minorVersion`/`patchVersion`).
+- `dotnet-publish.yml` — resolves version through the preflight-enabled `version-builder-action`, then builds, packs, and pushes NuGet packages. The fail-closed preflight reads live branch, tag, exact-tag, and GitHub Release state before any version-file mutation, compilation, packing, or publication; it is read-only but requires `contents: write` so draft releases are visible. Same output contract as `node-publish.yml` (minus `minorVersion`/`patchVersion`). During integration, it temporarily consumes `sketch7/version-builder-action@feature/promotable-app-release-cycle`.
 
 **Release flow** (`@release-v1`, language-agnostic — shared by both Node and .NET pipelines)
 - `prepare-release.yml` — after a pre-release publish on `main`, force-pushes HEAD to `release/v{baseVersion}`, ensures the `v{major}` stable branch exists (bootstraps it one commit behind so the first PR has a real diff), opens/updates the PR `release/v{baseVersion} → v{major}`.
-- `create-release.yml` — tags the exact version (`v2.1.0`), force-moves the floating major tag (`v2`), publishes a GitHub Release with auto-notes, and outputs `is-latest` (major-version comparison) to gate downstream bump.
+- `create-release.yml` — queues releases per repository and consumes the publisher's already-published `version` verbatim; it never invokes `version-builder-action`. It creates/reuses exact tags plus published releases before moving eligible stable channels. `is-prerelease` remains declared for caller compatibility but is deprecated and ignored. Conflicting state fails closed, while the final branch/tag snapshot prevents stale or superseded runs from moving floating/latest channels or returning `is-latest`; stable tag-triggered calls finalize the exact release but skip stable-channel mutation because no branch head is available. See `README.md` for the public contract and failure semantics.
 - `node-bump-main.yml` — after a stable release on the latest major, bumps minor version on `main` (`npm version minor --no-git-tag-version`) and opens a PR, committed with `[skip ci]`. Callers must guard this with `create-release`'s `is-latest == 'true'` so LTS/backport releases (e.g. publishing `v1.x` while `main` is on `v2`) don't spuriously bump main.
 
 **Automation**
@@ -49,9 +49,9 @@ Because tags float, changing a workflow file changes behavior for every consumer
 ## Conventions callers must follow
 
 - **Public repos**: `prepare-release.yml`'s `secrets.token` must be a PAT/GitHub App token with `workflow` scope — the default `GITHUB_TOKEN` cannot push branches containing `.github/workflows/` files on public repos. Private repos work with the default token.
-- **`node-publish` / `dotnet-publish` → `prepare-release` → `create-release` → `bump-main`** wire together via job `needs` + `if` conditions on prior outputs (`isPrerelease`, `is-latest`, `ref_name`) — see the full `ci.yml`/`cd.yml` examples in `README.md` for the exact permissions blocks and gating logic per language. Both examples share one branch pattern: push/PR triggers on `[main, "v*", "workflow"]`, plus a `workflow_dispatch` with `publish` / `force-prerelease` inputs for manual runs.
+- **`node-publish` / `dotnet-publish` → `prepare-release` → `create-release` → `bump-main`** wire together via job `needs` + `if` conditions on prior outputs (`isPrerelease`, `is-latest`, `ref_name`) — see the full `ci.yml`/`cd.yml` examples in `README.md` for the exact permissions blocks and gating logic per language. Both examples share one branch pattern: push/PR triggers on `[main, "v*", "workflow"]`, plus a `workflow_dispatch` with `publish` / `force-prerelease` inputs for manual runs. Callers must treat `is-latest` as the string output `true` only after current branch-head and same-major mutation eligibility checks; a stable tag-triggered call cannot promote channels or trigger bump-main.
 - Private registries: Node uses `private-npm-registry`/`private-npm-scope`/`private-npm-auth-token`; .NET uses `private-nuget-env-prefix` (must match `NuGet.Config`'s `%{PREFIX}_USERNAME%`/`%{PREFIX}_TOKEN%` placeholders) plus `nuget-auth-token`/`private-nuget-username` secrets.
-- `create-release.yml`'s `tag-tmpl` input controls the floating major-tag format (default `v{major}`); override for repos wanting e.g. `{major}.x`.
+- `create-release.yml`'s `tag-tmpl` input controls both exact and floating tags (default `v{major}`): `{major}.x` produces exact `2.1.0.x` and floating `2.x`.
 
 ## When editing workflow files here
 

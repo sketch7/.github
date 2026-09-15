@@ -50,11 +50,6 @@ on:
         required: false
         type: string
         default: "npm run build"
-      tag-tmpl:
-        description: "Tag template used to check for existing version tags. Must match the value passed to create-release.yml. Use `{major}` as placeholder e.g. 'v{major}'."
-        required: false
-        type: string
-        default: "v{major}"
       on-version-conflict:
         description: "Behavior when a stable version's git tag already exists: 'fail' or 'bump-patch' (auto-increments the patch until a free tag is found). Only applies to stable (non-prerelease) publishes."
         required: false
@@ -122,11 +117,22 @@ jobs:
         with:
           fetch-depth: 0 # required for accurate commit counting in version-builder-action
 
+      - name: Build version
+        id: version-builder
+        uses: sketch7/version-builder-action@feature/promotable-app-release-cycle
+        with:
+          preid-branches: ${{ inputs.preid-branches }}
+          force-preid: ${{ inputs.force-preid }}
+          on-version-conflict: ${{ inputs.on-version-conflict }}
+          release-preflight: true
+          github-token: ${{ github.token }}
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
-        if: inputs.package-manager == 'pnpm'
+        if: steps.version-builder.outputs.skip-publish != 'true' && (inputs.package-manager == 'pnpm')
 
       - name: Setup Node
+        if: steps.version-builder.outputs.skip-publish != 'true'
         uses: actions/setup-node@v7
         with:
           node-version-file: ${{ inputs.node-version-file }}
@@ -134,7 +140,7 @@ jobs:
           cache: ${{ inputs.package-manager }}
 
       - name: Configure private registry npm auth
-        if: inputs.private-npm-registry != ''
+        if: steps.version-builder.outputs.skip-publish != 'true' && (inputs.private-npm-registry != '')
         uses: sketch7/npm-auth-action@v1
         with:
           registry: ${{ inputs.private-npm-registry }}
@@ -142,27 +148,23 @@ jobs:
           scope: ${{ inputs.private-npm-scope }}
 
       - name: Print environment versions
+        if: steps.version-builder.outputs.skip-publish != 'true'
         run: |
           NODE_V=$(node --version)
           NPM_V=$(npm -v)
           echo "::notice::node version: $NODE_V / npm version: $NPM_V"
 
-      - name: Build version
-        id: version-builder
-        uses: sketch7/version-builder-action@v3
-        with:
-          preid-branches: ${{ inputs.preid-branches }}
-          force-preid: ${{ inputs.force-preid }}
-          tag-tmpl: ${{ inputs.tag-tmpl }}
-          on-version-conflict: ${{ inputs.on-version-conflict }}
 
       - name: Set version env
+        if: steps.version-builder.outputs.skip-publish != 'true'
         run: echo "VERSION=${{ steps.version-builder.outputs.version }}" >> $GITHUB_ENV
 
       - name: Set package version
+        if: steps.version-builder.outputs.skip-publish != 'true'
         run: npm version $VERSION --allow-same-version=true --git-tag-version=false
 
       - name: Restore dependencies
+        if: steps.version-builder.outputs.skip-publish != 'true'
         run: |
           if [[ "${{ inputs.package-manager }}" == "pnpm" ]]; then
             pnpm install --frozen-lockfile
@@ -171,7 +173,7 @@ jobs:
           fi
 
       - name: Replace version placeholder
-        if: inputs.version-replace-glob != ''
+        if: steps.version-builder.outputs.skip-publish != 'true' && (inputs.version-replace-glob != '')
         uses: richardrigutins/replace-in-files@v3
         with:
           files: ${{ inputs.version-replace-glob }}
@@ -180,15 +182,19 @@ jobs:
           exclude: "**/node_modules/**"
 
       - name: Pre-release build
+        if: steps.version-builder.outputs.skip-publish != 'true'
         run: npm run pre-release-build --if-present
 
       - name: Build
+        if: steps.version-builder.outputs.skip-publish != 'true'
         run: ${{ inputs.build-command }}
 
       - name: Pre-release
+        if: steps.version-builder.outputs.skip-publish != 'true'
         run: npm run pre-release --if-present
 
       - name: Publish
+        if: steps.version-builder.outputs.skip-publish != 'true'
         id: publish
         run: ${{ inputs.publish-command }} -- --tag ${{ steps.version-builder.outputs.tag }}
 
