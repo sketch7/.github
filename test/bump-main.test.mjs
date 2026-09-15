@@ -96,10 +96,10 @@ for (const {
       const expectedBranch = `chore/bump-v${expected}`;
       if (existingPrTitle) {
         assert.equal(prs.length, 0);
-        assert.equal(updates[0].title, `chore(release): bump version to ${expected}`);
+        assert.equal(updates[0].title, `chore(release): bump version to ${expected} [skip ci]`);
       } else {
         assert.equal(prs[0].head, expectedBranch);
-        assert.ok(!prs[0].title.includes('[skip ci]'));
+        assert.ok(prs[0].title.includes('[skip ci]'));
       }
       assert.equal(commands.some(command => command[0] === 'npm'), !branchExists);
       if (branchExists) {
@@ -117,6 +117,7 @@ for (const {
         assert.ok(!commands.some(command => command[0] === 'git' && command[1] === 'push'));
       } else {
         assert.ok(commands.some(command => command.includes(expected)));
+        assert.ok(commands.some(command => command[1] === 'commit' && command.at(-1).endsWith('[skip ci]')));
       }
     }
   });

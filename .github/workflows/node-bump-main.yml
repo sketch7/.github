@@ -5,25 +5,28 @@ on:
   workflow_call:
     inputs:
       runs-on:
+        description: "JSON runner label or labels, e.g. '\"ubuntu-latest\"'."
         type: string
         default: '"ubuntu-latest"'
       timeout-minutes:
+        description: "Maximum job duration in minutes, e.g. 15."
         type: number
         default: 15
       released-version:
-        description: "Stable version just released; determines the next minor."
+        description: "Stable version just released, e.g. 1.3.4 opens a bump to 1.4.0."
         required: true
         type: string
       default-branch:
+        description: "Development branch receiving the bump PR, e.g. main or master."
         type: string
         default: main
       package-json-dir:
-        description: "Directory containing the owned package.json."
+        description: "Directory containing the owned package.json, e.g. . or src/management."
         type: string
         default: "."
     secrets:
       token:
-        description: "Token allowed to open PRs and trigger their CI."
+        description: "Token allowed to push bump branches and open PRs, e.g. the organization GH_PAT."
         required: true
 
 permissions:
@@ -40,6 +43,10 @@ jobs:
           ref: ${{ inputs.default-branch }}
           fetch-depth: 0
           token: ${{ secrets.token }}
+      - name: Configure Git identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
       - name: Open next-minor PR
         uses: actions/github-script@v9
         env:
@@ -54,7 +61,7 @@ jobs:
             const { execFileSync } = require('node:child_process');
             const { RELEASED_VERSION: released, DEFAULT_BRANCH: base, PACKAGE_JSON_DIR: directory } = process.env;
             const parse = value => {
-              if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) throw new Error('Expected a stable version: ' + value);
+              if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) throw new Error(`Expected a stable version: ${value}`);
               return value.split('.').map(BigInt);
             };
             const [major, minor] = parse(released);
@@ -62,52 +69,56 @@ jobs:
             const version = target.join('.');
             const root = process.cwd();
             const cwd = resolve(root, directory);
-            if (cwd !== root && !cwd.startsWith(root + sep)) throw new Error('package-json-dir must stay inside the checkout');
+            if (cwd !== root && !cwd.startsWith(`${root}${sep}`)) throw new Error('package-json-dir must stay inside the checkout');
             const relativePath = file => relative(root, resolve(cwd, file)).split(sep).join('/');
             const packageJsonPath = relativePath('package.json');
             const allowedFiles = new Set([packageJsonPath, relativePath('package-lock.json'), relativePath('npm-shrinkwrap.json')]);
             const current = parse(JSON.parse(readFileSync(resolve(cwd, 'package.json'), 'utf8')).version);
             const difference = current.findIndex((part, index) => part !== target[index]);
             if (difference === -1 || current[difference] > target[difference]) {
-              core.notice('Main already contains this version or a newer one.');
+              core.notice(`${base} already contains ${version} or a newer version; no bump needed.`);
               return;
             }
             const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
-            const branch = 'chore/bump-v' + version;
-            if (git('ls-remote', '--heads', 'origin', 'refs/heads/' + branch)) {
-              const baseRef = 'refs/remotes/origin/' + base;
-              const branchRef = 'refs/remotes/origin/' + branch;
-              git('fetch', '--no-tags', 'origin', 'refs/heads/' + base + ':' + baseRef, 'refs/heads/' + branch + ':' + branchRef);
+            const branch = `chore/bump-v${version}`;
+            const title = `chore(release): bump version to ${version} [skip ci]`;
+            if (git('ls-remote', '--heads', 'origin', `refs/heads/${branch}`)) {
+              const baseRef = `refs/remotes/origin/${base}`;
+              const branchRef = `refs/remotes/origin/${branch}`;
+              git('fetch', '--no-tags', 'origin', `refs/heads/${base}:${baseRef}`, `refs/heads/${branch}:${branchRef}`);
               const mergeBase = git('merge-base', baseRef, branchRef);
-              const changedFiles = git('diff', '--name-only', mergeBase + '...' + branchRef).split(/\r?\n/).filter(Boolean);
+              const changedFiles = git('diff', '--name-only', `${mergeBase}...${branchRef}`).split(/\r?\n/).filter(Boolean);
               const unexpectedFiles = changedFiles.filter(file => !allowedFiles.has(file));
               if (unexpectedFiles.length) throw new Error(`Existing bump branch changes unexpected files: ${unexpectedFiles.join(', ')}`);
-              const existing = JSON.parse(git('show', branchRef + ':./package.json')).version;
+              const existing = JSON.parse(git('show', `${branchRef}:./package.json`)).version;
               if (existing !== version) throw new Error('Existing bump branch has an unexpected version');
+              core.notice(`Reusing verified bump branch ${branch}.`);
             } else {
-              git('config', 'user.name', 'github-actions[bot]');
-              git('config', 'user.email', 'github-actions[bot]@users.noreply.github.com');
               git('checkout', '-b', branch);
               execFileSync('npm', ['version', version, '--no-git-tag-version', '--ignore-scripts'], { cwd, encoding: 'utf8' });
               git('add', '--', 'package.json');
               for (const file of ['package-lock.json', 'npm-shrinkwrap.json']) {
                 if (existsSync(resolve(cwd, file))) git('add', '--', file);
               }
-              git('commit', '-m', 'chore(release): bump version to ' + version);
-              git('push', 'origin', 'HEAD:refs/heads/' + branch);
+              git('commit', '-m', title);
+              git('push', 'origin', `HEAD:refs/heads/${branch}`);
+              core.notice(`Created ${branch}: next minor ${version} after ${released}.`);
             }
-            const { data: prs } = await github.rest.pulls.list({ ...context.repo, state: 'open', head: context.repo.owner + ':' + branch, base });
-            const title = 'chore(release): bump version to ' + version;
+            const { data: prs } = await github.rest.pulls.list({ ...context.repo, state: 'open', head: `${context.repo.owner}:${branch}`, base });
             if (!prs.length) {
-              await github.rest.pulls.create({
+              const { data: pr } = await github.rest.pulls.create({
                 ...context.repo, head: branch, base,
                 title,
-                body: 'Next minor after releasing v' + released + '.',
+                body: `Next minor after releasing v${released}.`,
               });
+              core.notice(`Created bump PR #${pr.number}: ${branch} -> ${base}.`);
             } else if (prs[0].title !== title) {
               await github.rest.pulls.update({
                 ...context.repo,
                 pull_number: prs[0].number,
                 title,
               });
+              core.notice(`Updated bump PR #${prs[0].number} title.`);
+            } else {
+              core.notice(`Reusing bump PR #${prs[0].number}.`);
             }

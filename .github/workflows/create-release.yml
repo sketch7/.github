@@ -5,22 +5,23 @@ on:
   workflow_call:
     inputs:
       runs-on:
-        description: JSON-encoded runner label or array.
+        description: "JSON-encoded runner label or array, e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
         type: string
         default: '"ubuntu-latest"'
       timeout-minutes:
+        description: "Maximum job duration in minutes, e.g. 15."
         type: number
         default: 15
       version:
-        description: Published canonical SemVer, without a v prefix or build metadata.
+        description: "Published canonical SemVer, e.g. 2.1.0 or 2.1.0-rc.5, without a v prefix or build metadata."
         type: string
         required: true
     outputs:
       update-channels:
-        description: Whether callers may update Docker channels and deploy this release; still check branch freshness.
+        description: "Whether callers may update channels and deploy, e.g. false for an older same-major release; still check branch freshness."
         value: ${{ jobs.create-release.outputs.update-channels }}
       is-latest:
-        description: Whether this is the current highest stable release.
+        description: "Whether this is the current highest stable release; false for prereleases and older majors, e.g. v1 while v2 is stable."
         value: ${{ jobs.create-release.outputs.is-latest }}
 
 permissions:
