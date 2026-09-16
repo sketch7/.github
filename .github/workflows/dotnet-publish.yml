@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       runs-on:
-        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
+        description: 'JSON-encoded runs-on value e.g. ''"ubuntu-latest"'' or ''["blacksmith-4vcpu-ubuntu-2404"]''.'
         required: false
         type: string
         default: '"ubuntu-latest"'
@@ -112,7 +112,7 @@ jobs:
 
       - name: Build version
         id: version-builder
-        uses: sketch7/version-builder-action@v3
+        uses: sketch7/version-builder-action@feature/first-parent-prerelease-counter
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
@@ -140,7 +140,6 @@ jobs:
         run: |
           DOTNET_V=$(dotnet --version)
           echo "::notice::dotnet version: $DOTNET_V"
-
 
       - name: Set version envs
         if: steps.version-builder.outputs.skip-publish != 'true'

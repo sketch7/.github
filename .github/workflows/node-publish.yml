@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       runs-on:
-        description: "JSON-encoded runs-on value e.g. '\"ubuntu-latest\"' or '[\"blacksmith-4vcpu-ubuntu-2404\"]'."
+        description: 'JSON-encoded runs-on value e.g. ''"ubuntu-latest"'' or ''["blacksmith-4vcpu-ubuntu-2404"]''.'
         required: false
         type: string
         default: '"ubuntu-latest"'
@@ -119,7 +119,7 @@ jobs:
 
       - name: Build version
         id: version-builder
-        uses: sketch7/version-builder-action@v3
+        uses: sketch7/version-builder-action@feature/first-parent-prerelease-counter
         with:
           preid-branches: ${{ inputs.preid-branches }}
           force-preid: ${{ inputs.force-preid }}
@@ -153,7 +153,6 @@ jobs:
           NODE_V=$(node --version)
           NPM_V=$(npm -v)
           echo "::notice::node version: $NODE_V / npm version: $NPM_V"
-
 
       - name: Set version env
         if: steps.version-builder.outputs.skip-publish != 'true'
