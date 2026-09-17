@@ -149,7 +149,7 @@ jobs:
 
       - name: Resolve solution file
         if: steps.version-builder.outputs.skip-publish != 'true'
-        uses: sketch7/.github/.github/actions/resolve-dotnet-sln@feature/promotable-app-release-cycle
+        uses: sketch7/.github/.github/actions/resolve-dotnet-sln@dotnet-libs-v3
         with:
           project-path: ${{ inputs.project-path }}
           solution-file: ${{ inputs.solution-file }}
