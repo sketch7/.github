@@ -17,17 +17,32 @@ Remove `is-prerelease` from release calls and `tag-tmpl` from publish/release ca
 
 [![update tags](https://github.com/sketch7/.github/actions/workflows/update-tags.yml/badge.svg)](https://github.com/sketch7/.github/actions/workflows/update-tags.yml)
 
-Tags are updated automatically on push to `main` when workflow files change. Use [workflow_dispatch](https://github.com/sketch7/.github/actions/workflows/update-tags.yml) to manually update multiple tags at once.
+Tags are updated automatically on push to `main` when a mapped path changes — see `.github/tag-map.yml`, the source of truth this table mirrors. Use [workflow_dispatch](https://github.com/sketch7/.github/actions/workflows/update-tags.yml) to manually update multiple tags at once.
 
 | Tag              | Workflows                                                         |
 | ---------------- | ----------------------------------------------------------------- |
 | `node-libs-v3`   | `node-ci.yml`, `node-publish.yml`                                 |
 | `dotnet-libs-v3` | `dotnet-ci.yml`, `dotnet-publish.yml`                             |
 | `release-v2`     | `prepare-release.yml`, `create-release.yml`, `node-bump-main.yml` |
+| `ci-tags-v1`     | `update-tags.yml` (this workflow, reusable via `workflow_call`)   |
 
 ```bash
 # manual fallback — move a single tag
 TAG=<TAG> && git tag -f $TAG && git push origin $TAG -f
+```
+
+### Using `update-tags.yml` from another repo
+
+Other repos can reuse this tag-moving logic instead of duplicating it: add your own
+`.github/tag-map.yml` (same shape as this repo's), plus a thin caller workflow declaring your own
+`on: push` paths / `workflow_dispatch` tag checkboxes, with a single job:
+
+```yaml
+jobs:
+  update-tags:
+    uses: sketch7/.github/.github/workflows/update-tags.yml@ci-tags-v1
+    permissions:
+      contents: write
 ```
 
 ---

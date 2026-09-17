@@ -1,5 +1,7 @@
-# Automatically moves floating workflow tags when files change on main.
-# Also supports manual multi-tag updates via workflow_dispatch.
+# Automatically moves floating tags (see .github/tag-map.yml) when the files they cover change
+# on main. Also supports manual multi-tag updates via workflow_dispatch. Reusable via
+# workflow_call so other repos (e.g. arcane.hexgate) can run the same tag-moving logic against
+# their own .github/tag-map.yml — the default checkout resolves to the calling repo.
 name: update tags
 
 on:
@@ -20,6 +22,11 @@ on:
         description: "release-v2"
         type: boolean
         default: false
+      ci-tags-v1:
+        description: "ci-tags-v1"
+        type: boolean
+        default: false
+  workflow_call: {}
 
 permissions:
   contents: write
@@ -34,6 +41,9 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Convert tag map to JSON
+        run: yq -o=json '.' .github/tag-map.yml > /tmp/tag-map.json
+
       - name: Get changed files
         id: changed-files
         if: github.event_name == 'push'
@@ -46,33 +56,26 @@ jobs:
         uses: actions/github-script@v9
         env:
           CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
-          INPUT_NODE_LIBS_V3: ${{ inputs.node-libs-v3 }}
-          INPUT_DOTNET_LIBS_V3: ${{ inputs.dotnet-libs-v3 }}
-          INPUT_RELEASE_V2: ${{ inputs.release-v2 }}
-          COMMIT_SHA: ${{ github.sha }}
         with:
           script: |
-            const TAG_MAP = {
-              'node-libs-v3':   ['node-ci.yml', 'node-publish.yml'],
-              'dotnet-libs-v3': ['dotnet-ci.yml', 'dotnet-publish.yml'],
-              'release-v2':     ['prepare-release.yml', 'create-release.yml', 'node-bump-main.yml'],
-            }
+            const fs = require('fs')
+            const tagMap = JSON.parse(fs.readFileSync('/tmp/tag-map.json', 'utf8'))
 
             let tags = []
 
             if (context.eventName === 'push') {
-              const changedFiles = process.env.CHANGED_FILES.split(',').map(f => f.trim().split('/').pop())
-              core.info(`Changed workflow files: ${changedFiles.join(', ')}`)
-              for (const [tag, files] of Object.entries(TAG_MAP)) {
-                if (files.some(f => changedFiles.includes(f))) tags.push(tag)
+              const changedFiles = process.env.CHANGED_FILES.split(',').map(f => f.trim()).filter(Boolean)
+              core.info(`Changed files: ${changedFiles.join(', ')}`)
+              for (const [tag, paths] of Object.entries(tagMap)) {
+                const matches = paths.some(p =>
+                  p.endsWith('/**')
+                    ? changedFiles.some(f => f.startsWith(p.slice(0, -3)))
+                    : changedFiles.includes(p)
+                )
+                if (matches) tags.push(tag)
               }
             } else {
-              const inputMap = {
-                'node-libs-v3':   process.env.INPUT_NODE_LIBS_V3   === 'true',
-                'dotnet-libs-v3': process.env.INPUT_DOTNET_LIBS_V3 === 'true',
-                'release-v2':     process.env.INPUT_RELEASE_V2     === 'true',
-              }
-              tags = Object.entries(inputMap).filter(([, v]) => v).map(([k]) => k)
+              tags = Object.keys(tagMap).filter(tag => context.payload.inputs?.[tag] === 'true')
             }
 
             core.info(tags.length ? `Tags to update: ${tags.join(', ')}` : 'No tags to update')
@@ -96,7 +99,7 @@ jobs:
 
       - name: No updates
         if: steps.resolve-tags.outputs.has-updates != 'true'
-        run: echo "No workflow files changed that map to a tag — nothing to update."
+        run: echo "No files changed that map to a tag — nothing to update."
 
       - name: Write summary
         if: always()
@@ -122,14 +125,14 @@ jobs:
               `<strong>Commit:</strong> <a href="${repoUrl}/commit/${process.env.COMMIT_SHA}"><code>${sha}</code></a>`,
             ]
             if (!isDispatch && process.env.CHANGED_FILES) {
-              const files = process.env.CHANGED_FILES.split(',').map(f => f.trim().split('/').pop()).filter(Boolean)
+              const files = process.env.CHANGED_FILES.split(',').map(f => f.trim()).filter(Boolean)
               if (files.length) meta.push(`<strong>Changed files:</strong> ${files.map(f => `<code>${f}</code>`).join(', ')}`)
             }
 
             await core.summary.addHeading('Tag Update Summary', 2).addList(meta)
 
             if (!hasUpdates) {
-              await core.summary.addRaw('ℹ️ No workflow files changed that map to a tag — nothing to update.\n').write()
+              await core.summary.addRaw('ℹ️ No files changed that map to a tag — nothing to update.\n').write()
               return
             }
 
