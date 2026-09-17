@@ -1,0 +1,19 @@
+# Maps floating tags to the reusable workflows they cover.
+# Consumers pin `uses: sketch7/.github/.github/workflows/<file>.yml@<tag>` to one of these.
+# Moved automatically by .github/workflows/update-tags.yml when a listed path changes on main.
+# Keep README.md's Tags table in sync with this file.
+
+node-libs-v3:
+  - .github/workflows/node-ci.yml
+  - .github/workflows/node-publish.yml
+dotnet-libs-v3:
+  - .github/workflows/dotnet-ci.yml
+  - .github/workflows/dotnet-publish.yml
+release-v2:
+  - .github/workflows/prepare-release.yml
+  - .github/workflows/create-release.yml
+  - .github/workflows/node-bump-main.yml
+# Covers this repo's own update-tags.yml, which other repos (e.g. arcane.hexgate) call as a
+# reusable workflow via workflow_call — self-referential, same mechanism as every other tag.
+ci-tags-v1:
+  - .github/workflows/update-tags.yml
