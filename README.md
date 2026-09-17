@@ -55,37 +55,37 @@ Runs lint, build, and test. No publish, no version logic. Use on PRs and pushes.
 
 Resolves the version via `version-builder-action`, runs a fail-closed release preflight, then bumps `package.json`, installs, builds, and publishes the package. Designed to run **after** `node-ci.yml` — does not repeat lint/test.
 
-The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release state before any package/version mutation, build, or registry publication. It is read-only, but the reusable job grants `contents: write` so GitHub includes draft releases in the release listing. Authentication, authorization, rate-limit, transport, and malformed-response failures stop the job without falling back to local tags. The publisher consumes the released `sketch7/version-builder-action@v3`.
+The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release state before any package/version mutation, build, or registry publication. It is read-only, but the reusable job grants `contents: write` so GitHub includes draft releases in the release listing. Authentication, authorization, rate-limit, transport, and malformed-response failures stop the job without falling back to local tags. The publisher consumes the released `sketch7/version-builder-action@v4`.
 
 **Inputs**
 
-| Input                  | Default                      | Description                                           |
-| ---------------------- | ---------------------------- | ----------------------------------------------------- |
-| `node-version-file`    | `package.json`               | File containing the Node version spec                 |
-| `package-manager`      | `npm`                        | `npm` or `pnpm`                                       |
-| `registry-url`         | `https://registry.npmjs.org` | NPM registry to publish to                            |
-| `private-npm-registry` | —                            | Private registry URL                                  |
-| `private-npm-scope`    | —                            | Scope for private registry                            |
-| `preid-branches`       | _(action default)_           | Branch → preid mapping e.g. `main:rc,develop:dev`     |
-| `force-preid`          | `false`                      | Force preid even if branch doesn't match              |
-| `on-version-conflict`  | `bump-patch`                       | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`).       |
-| `publish-command`      | `npm run release`            | Command used to publish                               |
-| `version-replace`      | `0.0.0-PLACEHOLDER`          | Placeholder string to replace in source               |
-| `version-replace-glob` | `src/version.ts`             | Glob of files to replace placeholder in; `""` to skip |
+| Input                  | Default                      | Description                                                                                                                                               |
+| ---------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node-version-file`    | `package.json`               | File containing the Node version spec                                                                                                                     |
+| `package-manager`      | `npm`                        | `npm` or `pnpm`                                                                                                                                           |
+| `registry-url`         | `https://registry.npmjs.org` | NPM registry to publish to                                                                                                                                |
+| `private-npm-registry` | —                            | Private registry URL                                                                                                                                      |
+| `private-npm-scope`    | —                            | Scope for private registry                                                                                                                                |
+| `preid-branches`       | _(action default)_           | Branch → preid mapping e.g. `main:rc,develop:dev`                                                                                                         |
+| `force-preid`          | `false`                      | Force preid even if branch doesn't match                                                                                                                  |
+| `on-version-conflict`  | `bump-patch`                 | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`). |
+| `publish-command`      | `npm run release`            | Command used to publish                                                                                                                                   |
+| `version-replace`      | `0.0.0-PLACEHOLDER`          | Placeholder string to replace in source                                                                                                                   |
+| `version-replace-glob` | `src/version.ts`             | Glob of files to replace placeholder in; `""` to skip                                                                                                     |
 
 **Secrets** `private-npm-auth-token`
 
 **Outputs**
 
-| Output         | Example                    | Description                                                       |
-| -------------- | -------------------------- | ------------------------------------------------------------------- |
+| Output         | Example                    | Description                                                                               |
+| -------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
 | `version`      | `2.1.0-rc.5`               | Full published version; patch is bumped if `on-version-conflict` resolved a tag collision |
-| `baseVersion`  | `2.1.0`                    | Version without preid         |
-| `isPrerelease` | `true`                     | Whether this is a pre-release |
-| `tag`          | `rc` / `latest` / `v1-lts` | NPM dist-tag used             |
-| `majorVersion` | `2`                        | Major version number          |
-| `minorVersion` | `1`                        | Minor version number          |
-| `patchVersion` | `0`                        | Patch version number          |
+| `baseVersion`  | `2.1.0`                    | Version without preid                                                                     |
+| `isPrerelease` | `true`                     | Whether this is a pre-release                                                             |
+| `tag`          | `rc` / `latest` / `v1-lts` | NPM dist-tag used                                                                         |
+| `majorVersion` | `2`                        | Major version number                                                                      |
+| `minorVersion` | `1`                        | Minor version number                                                                      |
+| `patchVersion` | `0`                        | Patch version number                                                                      |
 
 ---
 
@@ -116,18 +116,18 @@ Callers must serialize the entire publish/finalize flow per repository with `can
 
 **Inputs**
 
-| Input              | Required | Default    | Description                                                                                                    |
-| ------------------ | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `runs-on`           | —        | `"ubuntu-latest"` | JSON-encoded runner value passed to the release job, e.g. `"ubuntu-latest"` or `["blacksmith-4vcpu-ubuntu-2404"]`. |
-| `timeout-minutes`   | —        | `15`       | Release job timeout in minutes.                                                                               |
-| `version`           | ✅        | —          | Published canonical SemVer without build metadata, e.g. `2.1.0` or `2.1.0-rc.5`; consumed verbatim. Prerelease state is derived from this value. |
+| Input             | Required | Default           | Description                                                                                                                                      |
+| ----------------- | -------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runs-on`         | —        | `"ubuntu-latest"` | JSON-encoded runner value passed to the release job, e.g. `"ubuntu-latest"` or `["blacksmith-4vcpu-ubuntu-2404"]`.                               |
+| `timeout-minutes` | —        | `15`              | Release job timeout in minutes.                                                                                                                  |
+| `version`         | ✅        | —                 | Published canonical SemVer without build metadata, e.g. `2.1.0` or `2.1.0-rc.5`; consumed verbatim. Prerelease state is derived from this value. |
 
 **Outputs**
 
-| Output      | Example | Description                                                          |
-| ----------- | ------- | -------------------------------------------------------------------- |
-| `update-channels` | `true` | Whether an app may proceed to Docker channels/deployment. Allows RCs and current old-major releases, but excludes stale/superseded stable releases. The app still checks branch freshness immediately before channel updates. |
-| `is-latest` | `true`  | String value `true` only when this stable release is on the highest stable major, the triggering branch still points at `github.sha`, and no higher same-major stable version exists. It is `false` for prereleases, tag-triggered stable calls, moved branches, and superseded stable releases; callers use `needs.release.outputs.is-latest == 'true'` to guard bump-main. |
+| Output            | Example | Description                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `update-channels` | `true`  | Whether an app may proceed to Docker channels/deployment. Allows RCs and current old-major releases, but excludes stale/superseded stable releases. The app still checks branch freshness immediately before channel updates.                                                                                                                                                |
+| `is-latest`       | `true`  | String value `true` only when this stable release is on the highest stable major, the triggering branch still points at `github.sha`, and no higher same-major stable version exists. It is `false` for prereleases, tag-triggered stable calls, moved branches, and superseded stable releases; callers use `needs.release.outputs.is-latest == 'true'` to guard bump-main. |
 
 ---
 
@@ -171,22 +171,22 @@ Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish.
 
 Resolves the version via `version-builder-action`, runs a fail-closed release preflight, then builds, packs, and pushes NuGet packages.
 
-The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release state before any version-file mutation, compilation, packing, or registry publication. It is read-only, but the reusable job grants `contents: write` so GitHub includes draft releases in the release listing. Authentication, authorization, rate-limit, transport, and malformed-response failures stop the job without falling back to local tags. The publisher consumes the released `sketch7/version-builder-action@v3`.
+The preflight reads live, paginated branch, tag, exact-tag, and GitHub Release state before any version-file mutation, compilation, packing, or registry publication. It is read-only, but the reusable job grants `contents: write` so GitHub includes draft releases in the release listing. Authentication, authorization, rate-limit, transport, and malformed-response failures stop the job without falling back to local tags. The publisher consumes the released `sketch7/version-builder-action@v4`.
 
 **Inputs**
 
-| Input                      | Default                               | Description                                                                                                                                    |
-| -------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dotnet-version`           | `10.0.x`                              | .NET SDK version                                                                                                                               |
-| `dotnet-cfg`               | `Release`                             | Build configuration e.g. `Release`, `Debug`.                                                                                                   |
-| `project-path`             | `./`                                  | Path to the project or mono repo sub-folder e.g. `./my-service`. Prepended to `solution-file` when resolving.                                  |
-| `source-url`               | `https://api.nuget.org/v3/index.json` | NuGet source URL passed to `setup-dotnet` for credential configuration.                                                                        |
-| `source-name`              | —                                     | NuGet source name (from `NuGet.Config`) used for `dotnet nuget push -s`. Falls back to `source-url` when omitted.                              |
-| `solution-file`            | —                                     | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                 |
-| `private-nuget-env-prefix` | —                                     | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
-| `preid-branches`           | _(action default)_                    | Branch → preid mapping e.g. `main:rc,develop:dev`                                                                                              |
-| `force-preid`              | `false`                               | Force preid even if branch doesn't match                                                                                                       |
-| `on-version-conflict`      | `bump-patch`                                | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`). |
+| Input                      | Default                               | Description                                                                                                                                               |
+| -------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dotnet-version`           | `10.0.x`                              | .NET SDK version                                                                                                                                          |
+| `dotnet-cfg`               | `Release`                             | Build configuration e.g. `Release`, `Debug`.                                                                                                              |
+| `project-path`             | `./`                                  | Path to the project or mono repo sub-folder e.g. `./my-service`. Prepended to `solution-file` when resolving.                                             |
+| `source-url`               | `https://api.nuget.org/v3/index.json` | NuGet source URL passed to `setup-dotnet` for credential configuration.                                                                                   |
+| `source-name`              | —                                     | NuGet source name (from `NuGet.Config`) used for `dotnet nuget push -s`. Falls back to `source-url` when omitted.                                         |
+| `solution-file`            | —                                     | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                            |
+| `private-nuget-env-prefix` | —                                     | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials.            |
+| `preid-branches`           | _(action default)_                    | Branch → preid mapping e.g. `main:rc,develop:dev`                                                                                                         |
+| `force-preid`              | `false`                               | Force preid even if branch doesn't match                                                                                                                  |
+| `on-version-conflict`      | `bump-patch`                          | `ignore`, `fail`, or `bump-patch` when a stable version's tag already exists. Passed through to `version-builder-action` (whose own default is `ignore`). |
 
 **Secrets**
 
