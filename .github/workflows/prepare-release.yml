@@ -22,6 +22,11 @@ on:
         description: "PR title override. Defaults to 'Release v{base-version}'."
         required: false
         type: string
+      draft:
+        description: "Open the release PR as a draft."
+        required: false
+        type: boolean
+        default: true
     secrets:
       token:
         description: "GitHub token to use. Defaults to GITHUB_TOKEN. Use a PAT with 'workflow' scope for public repos (required to create branches containing workflow files)."
@@ -184,6 +189,7 @@ jobs:
                 head: releaseBranch,
                 base: targetBranch,
                 body: `Automated release PR for \`v${baseVersion}\`.\n\nMerge this PR to publish the stable release and create the GitHub Release.`,
+                draft: ${{ inputs.draft }},
               })
               action = 'Created'
               pr = created
