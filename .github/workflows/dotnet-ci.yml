@@ -68,7 +68,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: dotnet-ci-${{ github.ref }}
+  group: dotnet-ci-${{ github.workflow }}-${{ inputs.project-path }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
