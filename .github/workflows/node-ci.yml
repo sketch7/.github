@@ -45,7 +45,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: node-ci-${{ github.ref }}
+  group: node-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

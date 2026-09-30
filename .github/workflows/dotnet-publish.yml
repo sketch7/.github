@@ -96,7 +96,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: dotnet-publish-${{ github.ref }}
+  group: dotnet-publish-${{ github.workflow }}-${{ inputs.project-path }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

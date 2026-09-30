@@ -103,7 +103,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: node-publish-${{ github.ref }}
+  group: node-publish-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

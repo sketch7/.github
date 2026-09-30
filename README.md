@@ -51,7 +51,7 @@ jobs:
 
 ### `node-ci.yml` · `@node-libs-v3`
 
-Runs lint, build, and test. No publish, no version logic. Use on PRs and pushes.
+Runs lint, build, and test. No publish, no version logic. Use on PRs and pushes. A newer run cancels an in-progress one of the same calling workflow + ref.
 
 **Inputs**
 
@@ -161,7 +161,7 @@ After a latest-major stable release, opens a PR for the released version's next 
 
 ### `dotnet-ci.yml` · `@dotnet-libs-v3`
 
-Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish.
+Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish. A newer run cancels an in-progress one of the same calling workflow + `project-path` + ref, so several callers in a mono repo (e.g. Management CI + Delivery CI) run side by side.
 
 **Inputs**
 
