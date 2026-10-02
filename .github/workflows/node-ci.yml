@@ -36,6 +36,26 @@ on:
         description: "NPM private scope. Auto-resolved from package.json when omitted."
         required: false
         type: string
+      fmt-check-script:
+        description: "package.json script for the format check; skipped when the script is absent."
+        required: false
+        type: string
+        default: "fmt:check"
+      lint-script:
+        description: "package.json script for lint; skipped when the script is absent."
+        required: false
+        type: string
+        default: "lint"
+      build-script:
+        description: "package.json script for the build (required). Mono repos can point at one side, e.g. build:client."
+        required: false
+        type: string
+        default: "build"
+      test-script:
+        description: "package.json script for tests; skipped when the script is absent. Mono repos can point at one side, e.g. test:client."
+        required: false
+        type: string
+        default: "test"
     secrets:
       private-npm-auth-token:
         description: "Auth token for private NPM registry."
@@ -91,13 +111,21 @@ jobs:
           fi
 
       - name: Format check
-        run: npm run fmt:check --if-present
+        env:
+          SCRIPT: ${{ inputs.fmt-check-script }}
+        run: npm run "$SCRIPT" --if-present
 
       - name: Lint
-        run: npm run lint --if-present
+        env:
+          SCRIPT: ${{ inputs.lint-script }}
+        run: npm run "$SCRIPT" --if-present
 
       - name: Build
-        run: npm run build
+        env:
+          SCRIPT: ${{ inputs.build-script }}
+        run: npm run "$SCRIPT"
 
       - name: Test
-        run: npm test --if-present
+        env:
+          SCRIPT: ${{ inputs.test-script }}
+        run: npm run "$SCRIPT" --if-present

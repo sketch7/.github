@@ -61,6 +61,12 @@ Runs lint, build, and test. No publish, no version logic. Use on PRs and pushes.
 | `package-manager`      | `npm`          | `npm` or `pnpm`                                        |
 | `private-npm-registry` | —              | Private registry URL; configures auth when set         |
 | `private-npm-scope`    | —              | Scope for private registry; auto-resolved when omitted |
+| `fmt-check-script`     | `fmt:check`    | Format-check script; skipped when absent               |
+| `lint-script`          | `lint`         | Lint script; skipped when absent                       |
+| `build-script`         | `build`        | Build script (required)                                |
+| `test-script`          | `test`         | Test script; skipped when absent                       |
+
+Mono repos whose bare `build`/`test` also cover a .NET side can point node CI at the client scripts, e.g. `build-script: build:client` and `test-script: test:client`.
 
 **Secrets** `private-npm-auth-token`
 
