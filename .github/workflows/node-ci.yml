@@ -110,22 +110,22 @@ jobs:
             npm ci
           fi
 
-      - name: Format check
+      - name: Format check (${{ inputs.fmt-check-script }})
         env:
           SCRIPT: ${{ inputs.fmt-check-script }}
         run: npm run "$SCRIPT" --if-present
 
-      - name: Lint
+      - name: Lint (${{ inputs.lint-script }})
         env:
           SCRIPT: ${{ inputs.lint-script }}
         run: npm run "$SCRIPT" --if-present
 
-      - name: Build
+      - name: Build (${{ inputs.build-script }})
         env:
           SCRIPT: ${{ inputs.build-script }}
         run: npm run "$SCRIPT"
 
-      - name: Test
+      - name: Test (${{ inputs.test-script }})
         env:
           SCRIPT: ${{ inputs.test-script }}
         run: npm run "$SCRIPT" --if-present
