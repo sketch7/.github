@@ -65,8 +65,11 @@ Runs lint, build, and test. No publish, no version logic. Use on PRs and pushes.
 | `lint-script`          | `lint`         | Lint script; skipped when absent                       |
 | `build-script`         | `build`        | Build script (required)                                |
 | `test-script`          | `test`         | Test script; skipped when absent                       |
+| `nx-affected`          | `false`        | Treeless clone + `nx-set-shas` for `nx affected`       |
 
 Mono repos whose bare `build`/`test` also cover a .NET side can point node CI at the client scripts, e.g. `build-script: build:client` and `test-script: test:client`.
+
+Nx repos can set `nx-affected: true` and point the script inputs at `nx affected -t …` scripts. PRs compare against the merge-base with the target branch; pushes compare against the last successful run on the pushed branch, which needs `actions: read` in the caller's `permissions`. `node-ci.yml` inherits the caller's token permissions, so declare them in the calling workflow.
 
 **Secrets** `private-npm-auth-token`
 

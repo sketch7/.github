@@ -56,13 +56,19 @@ on:
         required: false
         type: string
         default: "test"
+      nx-affected:
+        description: "Treeless full-history checkout + nrwl/nx-set-shas (exports NX_BASE/NX_HEAD) so scripts can run `nx affected`. Push events need `actions: read` from the caller."
+        required: false
+        type: boolean
+        default: false
     secrets:
       private-npm-auth-token:
         description: "Auth token for private NPM registry."
         required: false
 
-permissions:
-  contents: read
+# No `permissions` block: inherits the caller's token so `nx-affected` callers can grant
+# `actions: read` (nx-set-shas). Declaring it here would fail every caller that only grants
+# `contents: read`. Callers must declare their own `permissions`.
 
 concurrency:
   group: node-ci-${{ github.workflow }}-${{ github.ref }}
@@ -77,6 +83,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history without blobs/trees (fetched lazily) - https://nx.dev/docs/features/ci-features/affected
+          fetch-depth: ${{ inputs.nx-affected && 0 || 1 }}
+          filter: ${{ inputs.nx-affected && 'tree:0' || '' }}
+
+      # PR: merge-base with the PR's base branch. Push: last successful run on the pushed branch
+      # (GitHub API, needs `actions: read` from the caller).
+      - name: Set nx affected base/head
+        if: inputs.nx-affected
+        uses: nrwl/nx-set-shas@v5
+        with:
+          main-branch-name: ${{ github.base_ref || github.ref_name }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
