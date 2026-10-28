@@ -46,6 +46,26 @@ on:
         required: false
         type: string
         default: ""
+      test-command:
+        description: "Shell command that replaces the built-in 'dotnet test', for suites that need their own runner (e.g. parallel shards). Runs after the build with SLN and DOTNET_CFG set, so it can test with --no-build. test-filter is ignored when set."
+        required: false
+        type: string
+        default: ""
+      test-results-path:
+        description: "Glob of the TRX files the test report reads. Point it at where test-command writes them."
+        required: false
+        type: string
+        default: "**/TestResults/*.trx"
+      test-artifacts-path:
+        description: "Path uploaded as the 'test-results' artifact when the job fails e.g. a custom runner's logs. Nothing is uploaded when omitted."
+        required: false
+        type: string
+        default: ""
+      node-version:
+        description: "Node.js version to set up before the build, for a test-command that runs a Node script. Skipped when omitted."
+        required: false
+        type: string
+        default: ""
     secrets:
       nuget-auth-token:
         description: "Auth token for NuGet source (also used for private NuGet restore credentials when private-nuget-env-prefix is set)."
@@ -88,6 +108,12 @@ jobs:
           cache: true
           cache-dependency-path: "./Directory.Packages.props"
 
+      - name: Setup Node
+        if: inputs.node-version != ''
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+
       - name: Configure private NuGet credentials
         if: inputs.private-nuget-env-prefix != ''
         run: |
@@ -113,18 +139,34 @@ jobs:
 
       - name: Test
         id: test
+        env:
+          DOTNET_CFG: ${{ inputs.dotnet-cfg }}
+          TEST_COMMAND: ${{ inputs.test-command }}
+          TEST_FILTER: ${{ inputs.test-filter }}
         run: |
-          FILTER_ARG=""
-          if [[ -n "${{ inputs.test-filter }}" ]]; then
-            FILTER_ARG="--filter ${{ inputs.test-filter }}"
+          if [[ -n "$TEST_COMMAND" ]]; then
+            bash -eo pipefail -c "$TEST_COMMAND"
+            exit
           fi
-          dotnet test "$SLN" -c ${{ inputs.dotnet-cfg }} --no-build --logger trx --results-directory ./TestResults/ $FILTER_ARG
+          FILTER_ARGS=()
+          if [[ -n "$TEST_FILTER" ]]; then
+            FILTER_ARGS=(--filter "$TEST_FILTER")
+          fi
+          dotnet test "$SLN" -c "$DOTNET_CFG" --no-build --logger trx --results-directory ./TestResults/ "${FILTER_ARGS[@]}"
 
       - name: Test Report
         uses: dorny/test-reporter@v3
-        if: ${{ !cancelled() && steps.test.conclusion != '' && hashFiles('**/TestResults/*.trx') != '' }}
+        if: ${{ !cancelled() && steps.test.conclusion != '' && hashFiles(inputs.test-results-path) != '' }}
         with:
           name: .NET Tests
-          path: "**/TestResults/*.trx"
+          path: ${{ inputs.test-results-path }}
           reporter: dotnet-trx
           fail-on-error: true
+
+      - name: Upload test artifacts
+        if: ${{ failure() && inputs.test-artifacts-path != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: ${{ inputs.test-artifacts-path }}
+          if-no-files-found: ignore

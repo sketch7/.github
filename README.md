@@ -181,6 +181,26 @@ Runs `dotnet restore`, `dotnet build`, and `dotnet test`. No publish. A newer ru
 | `project-path`             | `./`      | Path to the project or mono repo sub-folder e.g. `./my-service`. Prepended to `solution-file` when resolving.                                  |
 | `solution-file`            | —         | Solution or project file to build. When omitted, auto-resolved from `package.json#dotnetBuildSln`, then blank.                                 |
 | `private-nuget-env-prefix` | —         | Env var prefix for NuGet credentials (must match `NuGet.Config` `%{PREFIX}_USERNAME%` / `%{PREFIX}_TOKEN%`). When set, configures credentials. |
+| `test-filter`              | —         | Expression passed to `dotnet test --filter` e.g. `Category!=e2e`. Ignored when `test-command` is set.                                          |
+| `test-command`             | —         | Shell command that replaces the built-in `dotnet test`, for a suite that needs its own runner. See below.                                      |
+| `test-results-path`        | `**/TestResults/*.trx` | Glob of the TRX files the test report reads. Point it at where `test-command` writes them.                                        |
+| `test-artifacts-path`      | —         | Path uploaded as the `test-results` artifact when the job fails e.g. a custom runner's logs.                                                   |
+| `node-version`             | —         | Node.js version to set up before the build, for a `test-command` that runs a Node script. Skipped when omitted.                                |
+
+**Custom test command**
+
+The built-in test step is one serial `dotnet test` over the solution. A suite that is too slow for that (e.g. integration tests run as parallel shards by a script in the repo) passes `test-command` instead. It runs in `bash` after the restore and build, with `SLN` and `DOTNET_CFG` set, so it can test the existing build with `--no-build` rather than building again:
+
+```yaml
+jobs:
+  ci:
+    uses: sketch7/.github/.github/workflows/dotnet-ci.yml@dotnet-libs-v3
+    with:
+      node-version: "24"
+      test-command: node tools/test-shards.mjs --configuration "$DOTNET_CFG"
+      test-results-path: "test-results/*.trx"
+      test-artifacts-path: test-results/
+```
 
 **Secrets**
 
